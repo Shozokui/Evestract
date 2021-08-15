@@ -63,14 +63,19 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
             printf("Event Block %5u Event %5u Id: %u\n", i, j, eventId);
         }
 
+        // Would more appropriately be called "constants," I think.
         uint32_t referenceCount = lsb32(buf, offset);
         offset += 4;
 
         printf("Event Block %5u Reference Count: %u\n", i, referenceCount);
 
+        uint32_t* constants = (uint32_t*) calloc(referenceCount, sizeof(uint32_t));
+
         for (uint32_t j = 0; j < referenceCount; j++) {
             uint32_t reference = lsb32(buf, offset);
             offset += 4;
+
+            constants[j] = reference;
 
             printf("Event Block %5u Reference %5u: %u\n", i, j, reference);
         }
@@ -103,7 +108,7 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
             }
             printf("\n");
 
-            ParseScript(&buf[offset], count);
+            ParseScript(&buf[offset], count, constants, referenceCount);
         }
     }
 
