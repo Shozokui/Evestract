@@ -4,10 +4,25 @@
 #include <inttypes.h>
 
 #include "bytes.h"
+#include "dialog.h"
 #include "event.h"
+#include "npc.h"
 #include "script.h"
 
-int ParseEvent(const uint8_t* buf, uint32_t length) {
+static const struct npc_entry_t* FindNPC(const struct npc_t* npc, uint32_t npcId) {
+    if (npc == NULL) {
+        return NULL;
+    }
+    for (uint32_t i = 0; i < npc->numEntries; i++) {
+        if (npc->entries[i].id == npcId) {
+            return &npc->entries[i];
+        }
+    }
+
+    return NULL;
+}
+
+int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc) {
 
     uint32_t blockCount = lsb32(buf, 0);
 
@@ -38,7 +53,15 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
         uint32_t eventCount = lsb32(buf, offset, 4);
         offset += 8;
 
-        printf("Event Block %5u Actor Id: %u\n", i, actorId);
+        const struct npc_entry_t* actor = FindNPC(npc, actorId);
+        if (actor != NULL) {
+            printf("Event Block %5u NPC %s (%u)\n", i, actor->name, actorId);
+        } else if (actorId == 2147483632) {
+             printf("Event Block %5u NPC %s (%u)\n", i, "[Zone]", actorId);
+        } else {
+            printf("Event Block %5u NPC Id: %u\n", i, actorId);
+        }
+
         printf("Event Block %5u Event Count: %u\n", i, eventCount);
 
         uint32_t* eventOffsets = (uint32_t*) malloc(eventCount * sizeof(uint32_t));
@@ -50,8 +73,6 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
             offset += 2;
 
             eventOffsets[j] = eventOffset;
-
-            printf("Event Block %5u Event %5u Offset: %u\n", i, j, eventOffset);
         }
 
         for (uint32_t j = 0; j < eventCount; j++) {
@@ -59,25 +80,30 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
             offset += 2;
 
             eventIds[j] = eventId;
-
-            printf("Event Block %5u Event %5u Id: %u\n", i, j, eventId);
         }
 
-        // Would more appropriately be called "constants," I think.
-        uint32_t referenceCount = lsb32(buf, offset);
+        for (uint32_t j = 0; j < eventCount; j++) {
+            printf("Event Block %5u Event %5u Id: %5u Offset: %5u\n",
+                i,
+                j,
+                eventIds[j],
+                eventOffsets[j]);
+        }
+
+        uint32_t constantCount = lsb32(buf, offset);
         offset += 4;
 
-        printf("Event Block %5u Reference Count: %u\n", i, referenceCount);
+        printf("Event Block %5u Constant Count: %u\n", i, constantCount);
 
-        uint32_t* constants = (uint32_t*) calloc(referenceCount, sizeof(uint32_t));
+        uint32_t* constants = (uint32_t*) calloc(constantCount, sizeof(uint32_t));
 
-        for (uint32_t j = 0; j < referenceCount; j++) {
-            uint32_t reference = lsb32(buf, offset);
+        for (uint32_t j = 0; j < constantCount; j++) {
+            uint32_t constant = lsb32(buf, offset);
             offset += 4;
 
-            constants[j] = reference;
+            constants[j] = constant;
 
-            printf("Event Block %5u Reference %5u: %u\n", i, j, reference);
+            printf("Event Block %5u Constant %5u: %u\n", i, j, constant);
         }
 
         uint32_t sceneSize = lsb32(buf, offset);
@@ -101,14 +127,16 @@ int ParseEvent(const uint8_t* buf, uint32_t length) {
             offset = eventOffsets[j];
             uint32_t count = eventSizes[j];
 
-            printf("Event Block %5u Event %5u Data:", i, j);
-
+            printf("Event Block %5u Event %5u Id: %5u Data:",
+                i,
+                j,
+                eventIds[j]);
             for (uint32_t k = 0; k < count; k++) {
                 printf("%02x", lsb8(buf, offset, k));
             }
             printf("\n");
 
-            ParseScript(&buf[offset], count, constants, referenceCount);
+            ParseScript(&buf[offset], count, constants, constantCount, dialog, npc);
         }
     }
 

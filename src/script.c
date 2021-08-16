@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <inttypes.h>
 
 #include "bytes.h"
+#include "dialog.h"
+#include "npc.h"
 #include "script.h"
 
 struct vm_t {
@@ -15,6 +18,9 @@ struct vm_t {
     uint32_t running;
     uint32_t length;
     uint32_t numConstants;
+
+    const struct dialog_t* dialog;
+    const struct npc_t* npc;
 };
 
 typedef void (*OpcodeFunc)(struct vm_t*);
@@ -25,31 +31,9 @@ static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
     uint16_t addr = lsb16(vm->code, vm->pc, off);
 
     char* buf = &tmpBuf[off][0];
-    if (addr == 0x1002) {
-        return "Param0";
-    }
-    if (addr == 0x1003) {
-        return "Param1";
-    }
-    if (addr == 0x1004) {
-        return "Param2";
-    }
-    if (addr == 0x1005) {
-        return "Param3";
-    }
-    if (addr == 0x1006) {
-        return "Param4";
-    }
-    if (addr == 0x1007) {
-        return "Param5";
-    }
-    if (addr == 0x1008) {
-        return "Param6";
-    }
-    if (addr == 0x1009) {
-        return "Param7";
-    }
-    if (addr >= 0x8000) {
+    if (addr >= 0x1002 && addr <= 0x1009) {
+        sprintf(buf, "Param%d", addr - 0x1002);
+    } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
         if (constant == 0x40000000) {
             return "OptionCancel";
@@ -81,6 +65,63 @@ static const char* getVar32Name(const struct vm_t* vm, uint32_t off) {
     return buf;
 }
 
+static char* getVar16Message(const struct vm_t* vm, uint32_t off) {
+    if (vm->dialog != NULL) {
+        uint16_t addr = lsb16(vm->code, vm->pc, off);
+
+        if (addr >= 0x8000) {
+            uint32_t constant = vm->constants[addr - 0x8000];
+
+            if (constant < vm->dialog->numEntries) {
+                const struct dialog_entry_t* entry = &vm->dialog->entries[constant];
+
+                const uint8_t* rawMessage = entry->text;
+                uint32_t rawMessageSize = entry->length;
+
+                char* message = (char*) calloc(16, rawMessageSize + 1);
+                char* pMsg = message;
+
+                // This is going to need to live in dialog, and have it handle
+                // Shift-JIS to UTF-8 or whatever.
+                for (uint32_t i = 0; i < rawMessageSize; i++) {
+                    uint8_t b = rawMessage[i];
+
+                    if (isprint(b)) {
+                        *pMsg = b;
+                        pMsg++;
+                    } else if (b == 0x92 && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
+                        char tmp[16];
+                        sprintf(tmp, "[S_P][Param%d]", rawMessage[i+1]);
+                        strcpy(pMsg, tmp);
+                        pMsg += strlen(tmp);
+                        i++;
+                    } else if (b == 0xa && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
+                        char tmp[16];
+                        sprintf(tmp, "[Num][Param%d]", rawMessage[i+1]);
+                        strcpy(pMsg, tmp);
+                        pMsg += strlen(tmp);
+                        i++;
+                    } else if (b == 0xc && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
+                        char tmp[16];
+                        sprintf(tmp, "[Idx][Param%d]", rawMessage[i+1]);
+                        strcpy(pMsg, tmp);
+                        pMsg += strlen(tmp);
+                        i++;
+                    } else {
+                        char tmp[16];
+                        sprintf(tmp, "<%02x>", b);
+                        strcpy(pMsg, tmp);
+                        pMsg += strlen(tmp);
+                    }
+                }
+                return message;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 static void OpcodeUNSUP(struct vm_t* vm) {
      printf("UNSUP %02x\n",
         lsb8(vm->code, vm->pc));
@@ -97,6 +138,7 @@ static void Opcode00(struct vm_t* vm) {
 }
 
 static void Opcode01(struct vm_t* vm) {
+    // This is what the code appears to do but tends to be off a few bytes at times?
     printf("JMP %04x\n", lsb16(vm->code, vm->pc, 1));
     vm->pc += 3;
 }
@@ -290,8 +332,18 @@ static void Opcode1C(struct vm_t* vm) {
 
 static void Opcode1D(struct vm_t* vm) {
     // Thought: Prints message to user.
-    printf("Opcode1D %s\n",
-        getVar16Name(vm, 1));
+    char* message = getVar16Message(vm, 1);
+
+    if (message != NULL) {
+        printf("Opcode1D %s // %s\n",
+            getVar16Name(vm, 1),
+            message);
+        free(message);
+    } else {
+        printf("Opcode1D %s\n",
+            getVar16Name(vm, 1));
+    }
+
     vm->pc += 3;
 };
 
@@ -328,10 +380,21 @@ static void Opcode23(struct vm_t* vm) {
 };
 
 static void Opcode24(struct vm_t* vm) {
-    printf("Opcode24 %s, %s, %s\n",
-        getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
-        getVar16Name(vm, 5));
+    char* message = getVar16Message(vm, 1);
+
+    if (message != NULL) {
+        printf("Opcode24 %s, %s, %s // %s\n",
+            getVar16Name(vm, 1),
+            getVar16Name(vm, 3),
+            getVar16Name(vm, 5),
+            message);
+        free(message);
+    } else {
+        printf("Opcode24 %s, %s, %s\n",
+            getVar16Name(vm, 1),
+            getVar16Name(vm, 3),
+            getVar16Name(vm, 5));
+    }
 
     vm->pc += 7;
 };
@@ -517,49 +580,59 @@ static void Opcode43(struct vm_t* vm) {
     printf("Opcode43 %02x\n",
         lsb8(vm->code, vm->pc, 1));
     vm->pc += 2;
-};
+}
 
 static void Opcode44(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode45(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode46(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode47(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode48(struct vm_t* vm) {
-    printf("Opcode48 %s\n",
-        getVar16Name(vm, 1));
+    // Thought: prints message to user
+    char* message = getVar16Message(vm, 1);
+
+    if (message != NULL) {
+        printf("Opcode48 %s // %s\n",
+            getVar16Name(vm, 1),
+            message);
+        free(message);
+    } else {
+        printf("Opcode48 %s\n",
+            getVar16Name(vm, 1));
+    }
 
     vm->pc += 3;
-};
+}
 
 static void Opcode49(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode4A(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode4B(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode4C(struct vm_t* vm) {
     // todo - Some other stuffs.
@@ -1540,7 +1613,7 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xff] = OpcodeUNSUP,
 };
 
-int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constants, uint32_t numConstants) {
+int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constants, uint32_t numConstants, const struct dialog_t* dialog, const struct npc_t* npc) {
 
     struct vm_t vm;
 
@@ -1552,8 +1625,11 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constant
     vm.constants = constants;
     vm.numConstants = numConstants;
 
+    vm.dialog = dialog;
+    vm.npc = npc;
+
     while (vm.running != 0 && vm.pc < vm.length) {
-        printf("# %04x: %02x\n", vm.pc, vm.code[vm.pc]);
+        printf("%04x: ", vm.pc);
         OpcodeTable[vm.code[vm.pc]](&vm);
     }
 
@@ -1564,7 +1640,7 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constant
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");
     } else if (vm.running == 0) {
-        printf("# Halted.\n");
+        printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
     } else {
         printf("# Underrun\n");
     }
