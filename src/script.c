@@ -31,7 +31,11 @@ static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
     uint16_t addr = lsb16(vm->code, vm->pc, off);
 
     char* buf = &tmpBuf[off][0];
-    if (addr >= 0x1002 && addr <= 0x1009) {
+    if (addr == 0x1000) {
+        return "SelectedOption";
+    } else if (addr == 0x1001) {
+        return "EventResult";
+    } else if (addr >= 0x1002 && addr <= 0x1009) {
         sprintf(buf, "Param%d", addr - 0x1002);
     } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
@@ -186,7 +190,7 @@ static void Opcode02(struct vm_t* vm) {
         getVar16Name(vm, 1),
         Op,
         getVar16Name(vm, 3),
-        lsb16(vm->code, vm->pc, 6) - 1);
+        lsb16(vm->code, vm->pc, 6));
     vm->pc += 8;
 }
 
@@ -1613,7 +1617,7 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xff] = OpcodeUNSUP,
 };
 
-int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constants, uint32_t numConstants, const struct dialog_t* dialog, const struct npc_t* npc) {
+int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOffsets, const uint32_t* eventIds, uint32_t numEvents, const uint32_t* constants, uint32_t numConstants, const struct dialog_t* dialog, const struct npc_t* npc) {
 
     struct vm_t vm;
 
@@ -1629,13 +1633,19 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* constant
     vm.npc = npc;
 
     while (vm.running != 0 && vm.pc < vm.length) {
+        for (uint32_t i = 0; i < numEvents; i++) {
+            if (eventOffsets[i] == vm.pc) {
+                printf("EventEntryPoint_%u:\n", eventIds[i]);
+            }
+        }
+
         printf("%04x: ", vm.pc);
         OpcodeTable[vm.code[vm.pc]](&vm);
     }
 
     if (vm.length == 0) {
         printf("# Nothing to do.\n");
-    } else if (vm.pc == vm.length && vm.code[vm.pc-1] == 0x00) {
+    } else if (vm.pc == vm.length/* && vm.code[vm.pc-1] == 0x00*/) {
         printf("# Finished!\n");
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");
