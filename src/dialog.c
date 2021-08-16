@@ -58,8 +58,8 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
             entry->text[j] ^= 0x80;
         }
 
-/*
-        printf("%8u %8u %8u: ", offset, nextOffset, entryLen);
+#if 0
+        printf("%u: ", i);
 
         for (uint32_t j = 0; j < entryLen; j++) {
             uint8_t b = entry->text[j];
@@ -78,7 +78,7 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
         }
 
         printf("\n");
-*/
+#endif
     }
 
     return 0;
