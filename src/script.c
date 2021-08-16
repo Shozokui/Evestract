@@ -82,7 +82,7 @@ static char* getVar16Message(const struct vm_t* vm, uint32_t off) {
                 const uint8_t* rawMessage = entry->text;
                 uint32_t rawMessageSize = entry->length;
 
-                char* message = (char*) calloc(16, rawMessageSize + 1);
+                char* message = (char*) calloc(32, rawMessageSize + 1);
                 char* pMsg = message;
 
                 // This is going to need to live in dialog, and have it handle
@@ -93,26 +93,32 @@ static char* getVar16Message(const struct vm_t* vm, uint32_t off) {
                     if (isprint(b)) {
                         *pMsg = b;
                         pMsg++;
+                    } else if (b == 0x82 && (i+1) < rawMessageSize && rawMessage[i+1] >= 0x80 && rawMessage[i+1] <= 0x89) {
+                        char tmp[32];
+                        sprintf(tmp, "[Itm][Param%d]", rawMessage[i+1] - 0x80);
+                        strcpy(pMsg, tmp);
+                        pMsg += strlen(tmp);
+                        i++;
                     } else if (b == 0x92 && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[16];
+                        char tmp[32];
                         sprintf(tmp, "[S_P][Param%d]", rawMessage[i+1]);
                         strcpy(pMsg, tmp);
                         pMsg += strlen(tmp);
                         i++;
                     } else if (b == 0xa && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[16];
+                        char tmp[32];
                         sprintf(tmp, "[Num][Param%d]", rawMessage[i+1]);
                         strcpy(pMsg, tmp);
                         pMsg += strlen(tmp);
                         i++;
                     } else if (b == 0xc && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[16];
+                        char tmp[32];
                         sprintf(tmp, "[Idx][Param%d]", rawMessage[i+1]);
                         strcpy(pMsg, tmp);
                         pMsg += strlen(tmp);
                         i++;
                     } else {
-                        char tmp[16];
+                        char tmp[32];
                         sprintf(tmp, "<%02x>", b);
                         strcpy(pMsg, tmp);
                         pMsg += strlen(tmp);
@@ -354,14 +360,12 @@ static void Opcode19(struct vm_t* vm) {
 }
 
 static void Opcode1A(struct vm_t* vm) {
-    printf("Opcode1A %s\n",
-        getVar16Name(vm, 1));
+    printf("CALL L%04X\n", lsb16(vm->code, vm->pc, 1));
     vm->pc += 3;
 }
 
 static void Opcode1B(struct vm_t* vm) {
-    // Unsure
-    printf("Opcode1B\n");
+    printf("RET\n");
     vm->pc += 1;
 }
 
@@ -653,10 +657,10 @@ static void Opcode3D(struct vm_t* vm) {
 }
 
 static void Opcode3E(struct vm_t* vm) {
-    printf("Opcode3E %s, %s, %s\n",
+    printf("Opcode3E %s, %s, L%04X\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
-        getVar16Name(vm, 5));
+        lsb16(vm->code, vm->pc, 5));
 
     vm->pc += 7;
 };
@@ -700,8 +704,10 @@ static void Opcode43(struct vm_t* vm) {
 }
 
 static void Opcode44(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    printf("Opcode44 %s, L%04X\n",
+        getVar16Name(vm, 1),
+        lsb8(vm->code, vm->pc, 3));
+    vm->pc += 5;
 }
 
 static void Opcode45(struct vm_t* vm) {
@@ -1073,15 +1079,18 @@ static void Opcode72(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param != 0) {
-        printf("Opcode72 %02x, %s, %s\n",
-            param,
+        // Read the current weather forecast
+        // for the given zone and store in
+        // Param0-Param2.
+        printf("WEATHER %s, %s\n",
             getVar16Name(vm, 2),
             getVar16Name(vm, 4));
 
         vm->pc += 6;
     } else {
-        printf("Opcode72 %02x, %s\n",
-            param,
+        // Load the appropriate Weather resource
+        // for the given zone.
+        printf("LOADWEATHER %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
@@ -1382,12 +1391,14 @@ static void Opcode9C(struct vm_t* vm) {
 };
 
 static void Opcode9D(struct vm_t* vm) {
+    // REVISIT -- param 2 is SOMETIMES immediate
     uint8_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param == 0) {
-        printf("Opcode9D %02x, %s, %s, %s\n",
+        // Array access
+        printf("Opcode9D %02x, L%04X, %s, %s\n",
             param,
-            getVar16Name(vm, 2),
+            lsb16(vm->code, vm->pc, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
@@ -1424,26 +1435,27 @@ static void Opcode9D(struct vm_t* vm) {
 
         vm->pc += 8;
     } else if (param == 5) {
-        printf("Opcode9D %02x, %s, %s, %s\n",
+        // Array write
+        printf("Opcode9D %02x, L%04X, %s, %s\n",
             param,
-            getVar16Name(vm, 2),
+            lsb16(vm->code, vm->pc, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
         vm->pc += 8;
     } else if (param == 6) {
-        printf("Opcode9D %02x, %s, %s, %s\n",
+        printf("Opcode9D %02x, L%04X, %s, %s\n",
             param,
-            getVar16Name(vm, 2),
+            lsb16(vm->code, vm->pc, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
         vm->pc += 8;
     } else if (param == 7) {
-        // Unsure
-        printf("Opcode9D %02x, %s, %s\n",
+        // CALL by jump table
+        printf("Opcode9D %02x, L%04X, %s\n",
             param,
-            getVar16Name(vm, 2),
+            lsb16(vm->code, vm->pc, 2),
             getVar16Name(vm, 4));
 
         vm->pc += 17;
@@ -1454,9 +1466,10 @@ static void Opcode9D(struct vm_t* vm) {
 
         vm->pc += 6;
     } else if (param == 10) {
-        printf("Opcode9D %02x, %s, %s, %s, %s\n",
+        // Bounded array access
+        printf("Opcode9D %02x, L%04X, %s, %s, %s\n",
             param,
-            getVar16Name(vm, 2),
+            lsb16(vm->code, vm->pc, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
