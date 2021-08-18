@@ -8,6 +8,7 @@
 #include "dialog.h"
 #include "npc.h"
 #include "script.h"
+#include "text.h"
 
 struct vm_t {
     const uint8_t* code;
@@ -27,6 +28,14 @@ typedef void (*OpcodeFunc)(struct vm_t*);
 
 static char tmpBuf[32][256];
 
+static uint8_t getImm8(const struct vm_t* vm, uint32_t off) {
+   return lsb8(vm->code, vm->pc, off);
+}
+
+static uint16_t getImm16(const struct vm_t* vm, uint32_t off) {
+   return lsb16(vm->code, vm->pc, off);
+}
+
 static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
     uint16_t addr = lsb16(vm->code, vm->pc, off);
 
@@ -41,6 +50,10 @@ static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
         uint32_t constant = vm->constants[addr - 0x8000];
         if (constant == 0x40000000) {
             return "OptionCancel";
+        } else if (constant >= 0xffffff00) {
+            sprintf(buf, "#%d", (int32_t) constant);
+        } else if (constant >= 0x80000000) {
+            sprintf(buf, "#$%08x", constant);
         } else {
             sprintf(buf, "#%u", constant);
         }
@@ -69,7 +82,7 @@ static const char* getVar32Name(const struct vm_t* vm, uint32_t off) {
     return buf;
 }
 
-static char* getVar16Message(const struct vm_t* vm, uint32_t off) {
+static const char* getVar16Message(const struct vm_t* vm, uint32_t off) {
     if (vm->dialog != NULL) {
         uint16_t addr = lsb16(vm->code, vm->pc, off);
 
@@ -77,54 +90,7 @@ static char* getVar16Message(const struct vm_t* vm, uint32_t off) {
             uint32_t constant = vm->constants[addr - 0x8000];
 
             if (constant < vm->dialog->numEntries) {
-                const struct dialog_entry_t* entry = &vm->dialog->entries[constant];
-
-                const uint8_t* rawMessage = entry->text;
-                uint32_t rawMessageSize = entry->length;
-
-                char* message = (char*) calloc(32, rawMessageSize + 1);
-                char* pMsg = message;
-
-                // This is going to need to live in dialog, and have it handle
-                // Shift-JIS to UTF-8 or whatever.
-                for (uint32_t i = 0; i < rawMessageSize; i++) {
-                    uint8_t b = rawMessage[i];
-
-                    if (isprint(b)) {
-                        *pMsg = b;
-                        pMsg++;
-                    } else if (b == 0x82 && (i+1) < rawMessageSize && rawMessage[i+1] >= 0x80 && rawMessage[i+1] <= 0x89) {
-                        char tmp[32];
-                        sprintf(tmp, "[Itm][Param%d]", rawMessage[i+1] - 0x80);
-                        strcpy(pMsg, tmp);
-                        pMsg += strlen(tmp);
-                        i++;
-                    } else if (b == 0x92 && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[32];
-                        sprintf(tmp, "[S_P][Param%d]", rawMessage[i+1]);
-                        strcpy(pMsg, tmp);
-                        pMsg += strlen(tmp);
-                        i++;
-                    } else if (b == 0xa && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[32];
-                        sprintf(tmp, "[Num][Param%d]", rawMessage[i+1]);
-                        strcpy(pMsg, tmp);
-                        pMsg += strlen(tmp);
-                        i++;
-                    } else if (b == 0xc && (i+1) < rawMessageSize && rawMessage[i+1] >= 0 && rawMessage[i+1] <= 9) {
-                        char tmp[32];
-                        sprintf(tmp, "[Idx][Param%d]", rawMessage[i+1]);
-                        strcpy(pMsg, tmp);
-                        pMsg += strlen(tmp);
-                        i++;
-                    } else {
-                        char tmp[32];
-                        sprintf(tmp, "<%02x>", b);
-                        strcpy(pMsg, tmp);
-                        pMsg += strlen(tmp);
-                    }
-                }
-                return message;
+                return GetPrintableDialogText(vm->dialog, constant);
             }
         }
     }
@@ -148,7 +114,7 @@ static void Opcode00(struct vm_t* vm) {
 }
 
 static void Opcode01(struct vm_t* vm) {
-    printf("JMP L%04X\n", lsb16(vm->code, vm->pc, 1));
+    printf("JMP L%04X\n", getImm16(vm, 1));
     vm->pc += 3;
 }
 
@@ -360,7 +326,8 @@ static void Opcode19(struct vm_t* vm) {
 }
 
 static void Opcode1A(struct vm_t* vm) {
-    printf("CALL L%04X\n", lsb16(vm->code, vm->pc, 1));
+    printf("CALL L%04X\n",
+        getImm16(vm, 1));
     vm->pc += 3;
 }
 
@@ -377,13 +344,13 @@ static void Opcode1C(struct vm_t* vm) {
 
 static void Opcode1D(struct vm_t* vm) {
     // Thought: Prints message to user.
-    char* message = getVar16Message(vm, 1);
+    const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
         printf("Opcode1D %s // %s\n",
             getVar16Name(vm, 1),
             message);
-        free(message);
+        FreePrintableText(message);
     } else {
         printf("Opcode1D %s\n",
             getVar16Name(vm, 1));
@@ -443,7 +410,7 @@ static void Opcode23(struct vm_t* vm) {
 }
 
 static void Opcode24(struct vm_t* vm) {
-    char* message = getVar16Message(vm, 1);
+    const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
         printf("Opcode24 %s, %s, %s // %s\n",
@@ -451,7 +418,7 @@ static void Opcode24(struct vm_t* vm) {
             getVar16Name(vm, 3),
             getVar16Name(vm, 5),
             message);
-        free(message);
+        FreePrintableText(message);
     } else {
         printf("Opcode24 %s, %s, %s\n",
             getVar16Name(vm, 1),
@@ -505,14 +472,14 @@ static void Opcode2A(struct vm_t* vm) {
 }
 
 static void Opcode2B(struct vm_t* vm) {
-    char* message = getVar16Message(vm, 5);
+    const char* message = getVar16Message(vm, 5);
 
     if (message != NULL) {
         printf("Opcode2B %s, %s // %s\n",
             getVar32Name(vm, 1),
             getVar16Name(vm, 5),
             message);
-        free(message);
+        FreePrintableText(message);
     } else {
         printf("Opcode2B %s, %s\n",
             getVar32Name(vm, 1),
@@ -584,8 +551,10 @@ static void Opcode34(struct vm_t* vm) {
 }
 
 static void Opcode35(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    printf("Opcode35 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
 }
 
 static void Opcode36(struct vm_t* vm) {
@@ -752,13 +721,13 @@ static void Opcode47(struct vm_t* vm) {
 
 static void Opcode48(struct vm_t* vm) {
     // Thought: prints message to user
-    char* message = getVar16Message(vm, 1);
+    const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
         printf("Opcode48 %s // %s\n",
             getVar16Name(vm, 1),
             message);
-        free(message);
+        FreePrintableText(message);
     } else {
         printf("Opcode48 %s\n",
             getVar16Name(vm, 1));
@@ -970,9 +939,11 @@ static void Opcode60(struct vm_t* vm) {
 };
 
 static void Opcode61(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode61 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void Opcode62(struct vm_t* vm) {
     printf("Opcode62 %s, %s, %s, %s, %s\n",
@@ -986,19 +957,31 @@ static void Opcode62(struct vm_t* vm) {
 }
 
 static void Opcode63(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode63 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode64(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode64 %s, %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5),
+        getVar16Name(vm, 7),
+        getVar16Name(vm, 9));
+
+    vm->pc += 11;
+}
 
 static void Opcode65(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode65 %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7));
+
+    vm->pc += 11;
+}
 
 static void Opcode66(struct vm_t* vm) {
     printf("Opcode66 %s, %s, %s, %s\n",
@@ -1011,29 +994,43 @@ static void Opcode66(struct vm_t* vm) {
 }
 
 static void Opcode67(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode67 %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3));
+
+    vm->pc += 5;
+}
 
 static void Opcode68(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode68\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode69(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode69 %02x, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2));
+
+    vm->pc += 4;
+}
 
 static void Opcode6A(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode6A %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5));
+
+    vm->pc += 5;
+}
 
 static void Opcode6B(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode6B %s, %s\n",
+        getVar32Name(vm, 1),
+        getVar32Name(vm, 5));
+
+    vm->pc += 9;
+}
 
 static void Opcode6C(struct vm_t* vm) {
     printf("Opcode6C %s, %s, %s\n",
@@ -1045,9 +1042,11 @@ static void Opcode6C(struct vm_t* vm) {
 }
 
 static void Opcode6D(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    // Doesn't do anything.
+    printf("Opcode6D\n");
+
+    vm->pc += 7;
+}
 
 static void Opcode6E(struct vm_t* vm) {
     printf("Opcode6E %s, %s\n",
@@ -1067,11 +1066,114 @@ static void Opcode70(struct vm_t* vm) {
     printf("Opcode70\n");
 
     vm->pc += 1;
-};
+}
 
 static void Opcode71(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
+    } else if (param == 1) {
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
+    } else if (param == 2) {
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
+    } else if (param == 3) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 16) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 17 || param == 19) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 18) {
+        printf("Opcode71 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+        vm->pc += 6;
+    } else if (param == 32) {
+        // Todo
+        vm->running = 0;
+    } else if (param == 33) {
+        // Todo
+        vm->running = 0;
+    } else if (param == 48) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 49) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 50) {
+        printf("Opcode71 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+        vm->pc += 6;
+    } else if (param == 64) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 65) {
+        printf("Opcode71 %02x, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 80) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 81) {
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
+    } else if (param == 82) {
+        printf("Opcode71 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+        vm->pc += 6;
+    } else if (param == 83) {
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
+    } else if (param == 84) {
+        printf("Opcode71 %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+        vm->pc += 10;
+    } else if (param == 85) {
+        printf("Opcode71 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else {
+        // todo - Some other stuffs.
+        vm->running = 0;
+    }
 }
 
 static void Opcode72(struct vm_t* vm) {
@@ -1148,14 +1250,18 @@ static void Opcode76(struct vm_t* vm) {
 }
 
 static void Opcode77(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode77 %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3));
+
+    vm->pc += 5;
+}
 
 static void Opcode78(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode78\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode79(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
@@ -1182,7 +1288,7 @@ static void Opcode79(struct vm_t* vm) {
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        vm->pc = 10;
+        vm->pc += 10;
     } else {
         // Effectively a NOP
         printf("Opcode79 %02x\n",
@@ -1220,12 +1326,13 @@ static void Opcode7D(struct vm_t* vm) {
 static void Opcode7E(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode7F(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode7F\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode80(struct vm_t* vm) {
     printf("Opcode80 %s\n",
@@ -1243,84 +1350,124 @@ static void Opcode81(struct vm_t* vm) {
 }
 
 static void Opcode82(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode82 %s, L%04x\n",
+        getVar32Name(vm, 1),
+        getImm16(vm, 5));
+
+    vm->pc += 7;
+}
 
 static void Opcode83(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode83 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode84(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode84\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode85(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode85\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode86(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode86 %02x, %s\n",
+        getImm8(vm, 1),
+        getVar32Name(vm, 2));
+
+    vm->pc += 6;
+}
 
 static void Opcode87(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode87 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void Opcode88(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode88 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void Opcode89(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode89 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode8A(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode8A\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode8B(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    // !!!
+    uint8_t buf[17];
+    memset(buf, 0, sizeof(buf));
+    memcpy(buf, &vm->code[vm->pc + 9], 16);
+
+    const char* text = GetPrintableText(buf, 16);
+
+    printf("Opcode8B %s, %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5),
+        getVar16Name(vm, 7),
+        text);
+
+    FreePrintableText(text);
+
+    vm->pc += 25;
+}
 
 static void Opcode8C(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode8D(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode8D %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3));
+
+    vm->pc += 5;
+}
 
 static void Opcode8E(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode8E\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode8F(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode8F\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode90(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode90\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode91(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode91 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode92(struct vm_t* vm) {
     printf("Opcode92 %02x, %s\n",
@@ -1346,17 +1493,20 @@ static void Opcode94(struct vm_t* vm) {
 }
 
 static void Opcode95(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode95 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode96(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode96\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode97(struct vm_t* vm) {
-    printf("Opcode73 %s, %s\n",
+    printf("Opcode97 %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3));
 
@@ -1364,9 +1514,10 @@ static void Opcode97(struct vm_t* vm) {
 }
 
 static void Opcode98(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode98\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode99(struct vm_t* vm) {
     printf("Opcode99 %s\n",
@@ -1381,14 +1532,17 @@ static void Opcode9A(struct vm_t* vm) {
 }
 
 static void Opcode9B(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode9B\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode9C(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode9C %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode9D(struct vm_t* vm) {
     // REVISIT -- param 2 is SOMETIMES immediate
@@ -1500,45 +1654,87 @@ static void Opcode9F(struct vm_t* vm) {
 }
 
 static void OpcodeA0(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA0 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeA1(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA1 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeA2(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA2 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeA3(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA3 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeA4(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA4 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void OpcodeA5(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA5 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void OpcodeA6(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t param = lsb8(vm->code, vm->pc, 1);
+
+    if (param == 0) {
+        printf("OpcodeA6 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 1) {
+        printf("OpcodeA6 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 2) {
+        printf("OpcodeA6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        vm->running = 0;
+    }
+}
 
 static void OpcodeA7(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param != 0) {
-        // ???
         printf("OpcodeA7 %02x, %s\n",
             param,
             getVar16Name(vm, 2));
@@ -1553,19 +1749,34 @@ static void OpcodeA7(struct vm_t* vm) {
 }
 
 static void OpcodeA8(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA8 %02x, %s, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2),
+        getVar16Name(vm, 4));
+
+    vm->pc += 6;
+}
 
 static void OpcodeA9(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeA9 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void OpcodeAA(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeAA %s, %s, %s, %s, %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5),
+        getVar16Name(vm, 7),
+        getVar16Name(vm, 9),
+        getVar16Name(vm, 11),
+        getVar16Name(vm, 13),
+        getVar16Name(vm, 15));
+
+    vm->pc += 17;
+}
 
 static void OpcodeAB(struct vm_t* vm) {
     uint8_t param = lsb8(vm->code, vm->pc, 1);
@@ -1761,67 +1972,104 @@ static void OpcodeAC(struct vm_t* vm) {
 static void OpcodeAD(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeAE(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeAF(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeAF %02x, %s, %s, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2),
+        getVar16Name(vm, 4),
+        getVar16Name(vm, 6));
+
+    vm->pc += 8;
+}
 
 static void OpcodeB0(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeB0 %02x, %s, %s, %s\n",
+        getImm8(vm, 1),
+        getVar32Name(vm, 2),
+        getVar32Name(vm, 6),
+        getVar16Name(vm, 10));
+
+    vm->pc += 12;
+}
 
 static void OpcodeB1(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeB1 %02x, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2));
+
+    vm->pc += 4;
+}
 
 static void OpcodeB2(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeB3(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeB4(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeB5(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeB5 %02x, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2));
+
+    vm->pc += 4;
+}
 
 static void OpcodeB6(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeB7(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeB8(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    // !!!
+    uint8_t buf[17];
+    memset(buf, 0, sizeof(buf));
+    memcpy(buf, &vm->code[vm->pc + 11], 16);
+
+    const char* text = GetPrintableText(buf, 16);
+
+    printf("OpcodeB8 %s, %s, %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5),
+        getVar16Name(vm, 7),
+        getVar16Name(vm, 9),
+        text);
+
+    FreePrintableText(text);
+
+    vm->pc += 27;
+}
 
 static void OpcodeB9(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeB9 %02x, %s, %s, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2),
+        getVar16Name(vm, 4),
+        getVar16Name(vm, 6));
+
+    vm->pc += 8;
+}
 
 static void OpcodeBA(struct vm_t* vm) {
     printf("OpcodeBA %s, %s, %s, %s, %s\n",
@@ -1846,49 +2094,63 @@ static void OpcodeBB(struct vm_t* vm) {
 }
 
 static void OpcodeBC(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeBC %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeBD(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeBD %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeBE(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeBE %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void OpcodeBF(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeC0(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeC0 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void OpcodeC1(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeC2(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeC3(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeC4(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void OpcodeC5(struct vm_t* vm) {
     printf("OpcodeC5 %s, %s, %s, %s, %s\n",
@@ -1902,24 +2164,39 @@ static void OpcodeC5(struct vm_t* vm) {
 }
 
 static void OpcodeC6(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeC6 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeC7(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeC7 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeC8(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeC8 %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3),
+        getVar16Name(vm, 5));
+
+    vm->pc += 7;
+}
 
 static void OpcodeC9(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeC9\n");
+
+    vm->pc += 1;
+}
 
 static void OpcodeCA(struct vm_t* vm) {
     // todo - Some other stuffs.
@@ -1932,9 +2209,56 @@ static void OpcodeCB(struct vm_t* vm) {
 };
 
 static void OpcodeCC(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0 || param == 1 || param == 3) {
+        printf("OpcodeCC %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 2) {
+        printf("OpcodeCC %02x, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12));
+
+        vm->pc += 14;
+    } else if (param == 16) {
+        printf("OpcodeCC %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 17) {
+        printf("OpcodeCC %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 32) {
+        printf("OpcodeCC %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        // Undefined
+        printf("OpcodeCC %02x\n",
+            param);
+
+        vm->running = 0;
+    }
+}
 
 static void OpcodeCD(struct vm_t* vm) {
     printf("OpcodeCD %s, %s, %s, %s, %s\n",
@@ -1948,14 +2272,24 @@ static void OpcodeCD(struct vm_t* vm) {
 }
 
 static void OpcodeCE(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeCE %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeCF(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeCF %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeD0(struct vm_t* vm) {
     printf("OpcodeD0 %s, %s, %s, %s, %s\n",
@@ -1969,19 +2303,32 @@ static void OpcodeD0(struct vm_t* vm) {
 }
 
 static void OpcodeD1(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeD1 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeD2(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeD2 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeD3(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeD3 %02x, %s\n",
+        getImm8(vm, 1),
+        getVar32Name(vm, 2));
+
+    vm->pc += 6;
+}
 
 static void OpcodeD4(struct vm_t* vm) {
     // todo - Some other stuffs.
@@ -2000,14 +2347,24 @@ static void OpcodeD5(struct vm_t* vm) {
 }
 
 static void OpcodeD6(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeD6 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeD7(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("OpcodeD7 %s, %s, %s, %s\n",
+        getVar16Name(vm, 1),
+        getVar32Name(vm, 3),
+        getVar32Name(vm, 7),
+        getVar32Name(vm, 11));
+
+    vm->pc += 15;
+}
 
 static void OpcodeD8(struct vm_t* vm) {
     // todo - Some other stuffs.
@@ -2301,7 +2658,7 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
 
     if (vm.length == 0) {
         printf("# Nothing to do.\n");
-    } else if (vm.pc == vm.length/* && vm.code[vm.pc-1] == 0x00*/) {
+    } else if (vm.pc == vm.length) {
         printf("# Finished!\n");
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");

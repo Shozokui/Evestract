@@ -13,5 +13,8 @@ struct dialog_t {
 };
 
 int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length);
+int UnloadDialog(struct dialog_t* dialog);
+
+const char* GetPrintableDialogText(const struct dialog_t* dialog, uint32_t index);
 
 #endif

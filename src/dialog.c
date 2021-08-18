@@ -6,6 +6,7 @@
 
 #include "bytes.h"
 #include "dialog.h"
+#include "text.h"
 
 int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
 
@@ -57,29 +58,20 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
         for (uint32_t j = 0; j < entryLen; j++) {
             entry->text[j] ^= 0x80;
         }
-
-#if 0
-        printf("%u: ", i);
-
-        for (uint32_t j = 0; j < entryLen; j++) {
-            uint8_t b = entry->text[j];
-
-            if (isprint(b)) {
-                printf("%c", b);
-            } else if (b == 0xc && (j+1) < entryLen && entry->text[j+1] >= 1 && entry->text[j+1] <= 8) {
-                char tmp[16];
-                sprintf(tmp, "[Param%d]", entry->text[j+1] - 1);
-                printf("%s", tmp);
-            } else {
-                char tmp[16];
-                sprintf(tmp, "<%02x>", b);
-                printf("%s", tmp);
-            }
-        }
-
-        printf("\n");
-#endif
     }
 
     return 0;
+}
+
+int UnloadDialog(struct dialog_t* dialog) {
+    return 0;
+}
+
+const char* GetPrintableDialogText(const struct dialog_t* dialog, uint32_t index) {
+    if (index < dialog->numEntries) {
+        const struct dialog_entry_t* entry = &dialog->entries[index];
+        return GetPrintableText(entry->text, entry->length);
+    }
+
+    return NULL;
 }
