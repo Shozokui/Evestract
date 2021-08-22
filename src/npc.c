@@ -61,3 +61,16 @@ int LoadNPC(struct npc_t** npc, const uint8_t* buf, uint32_t length) {
 int UnloadNPC(struct npc_t* npc) {
     return 0;   
 }
+
+const char* GetNPCName(const struct npc_t* npc, uint32_t npcId) {
+    if (npc == NULL) {
+        return NULL;
+    }
+    for (uint32_t i = 0; i < npc->numEntries; i++) {
+        if (npc->entries[i].id == npcId) {
+            return npc->entries[i].name;
+        }
+    }
+
+    return NULL;
+}

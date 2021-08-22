@@ -10,6 +10,13 @@
 #include "script.h"
 #include "text.h"
 
+struct reference_t {
+    uint32_t location;
+    uint32_t destination;
+    uint32_t end;
+    uint32_t active;
+};
+
 struct vm_t {
     const uint8_t* code;
 
@@ -24,26 +31,61 @@ struct vm_t {
     const struct npc_t* npc;
 
     // Disassembly state tracking.
-    uint32_t* addrEnd; // End, Ret
+    uint32_t unsup;
+
+    struct reference_t* addrEnd; // End, Ret
     uint32_t addrEndLen;
 
-    uint32_t* addrJmp; // Jmp, Call, Cmp, etc.
+    struct reference_t* addrJmp; // Jmp, Call, Cmp, etc.
     uint32_t addrJmpLen;
 
-    uint32_t* addrData; // Etc...
+    struct reference_t* addrData; // Etc...
     uint32_t addrDataLen;
 };
 
 static void TrackEnd(struct vm_t* vm, uint32_t addr) {
-    vm->addrEnd[vm->addrEndLen++] = addr;
+    for (uint32_t i = 0; i < vm->addrEndLen; i++) {
+        if (vm->pc == vm->addrEnd[i].location && vm->addrEnd[i].destination == addr) {
+            return;
+        }
+    }
+    struct reference_t ref = {
+        .location = vm->pc,
+        .destination = addr,
+        .end = 0,
+        .active = 1
+    };
+    vm->addrEnd[vm->addrEndLen++] = ref;
 }
 
 static void TrackJmp(struct vm_t* vm, uint32_t addr) {
-    vm->addrJmp[vm->addrJmpLen++] = addr;
+    for (uint32_t i = 0; i < vm->addrJmpLen; i++) {
+        if (vm->pc == vm->addrJmp[i].location && vm->addrJmp[i].destination == addr) {
+            return;
+        }
+    }
+    struct reference_t ref = {
+        .location = vm->pc,
+        .destination = addr,
+        .end = 0,
+        .active = 1
+    };
+    vm->addrJmp[vm->addrJmpLen++] = ref;
 }
 
 static void TrackData(struct vm_t* vm, uint32_t addr) {
-    vm->addrData[vm->addrDataLen++] = addr;
+    for (uint32_t i = 0; i < vm->addrDataLen; i++) {
+        if (vm->pc == vm->addrData[i].location && vm->addrData[i].destination == addr) {
+            return;
+        }
+    }
+    struct reference_t ref = {
+        .location = vm->pc,
+        .destination = addr,
+        .end = 0,
+        .active = 1
+    };
+    vm->addrData[vm->addrDataLen++] = ref;
 }
 
 typedef void (*OpcodeFunc)(struct vm_t*);
@@ -58,8 +100,27 @@ static uint16_t getImm16(const struct vm_t* vm, uint32_t off) {
    return lsb16(vm->code, vm->pc, off);
 }
 
-static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
+static uint32_t getImm32(const struct vm_t* vm, uint32_t off) {
+   return lsb32(vm->code, vm->pc, off);
+}
+
+#define VAR_FLAGS_INT           0x0001
+#define VAR_FLAGS_HEX           0x0002
+#define VAR_FLAGS_FLOAT_1000    0x0004
+#define VAR_FLAGS_RADIANS       0x0008
+#define VAR_FLAGS_FLOAT         0x0010
+#define VAR_FLAGS_FLOAT_10      0x0020
+
+static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, uint32_t flags) {
     uint16_t addr = lsb16(vm->code, vm->pc, off);
+
+    // type hints
+    uint32_t IsSignedInt = (flags & VAR_FLAGS_INT) != 0;
+    uint32_t IsHex = (flags & VAR_FLAGS_HEX) != 0;
+    uint32_t IsFloat100 = (flags & VAR_FLAGS_FLOAT_1000) != 0;
+    uint32_t IsRadians = (flags & VAR_FLAGS_RADIANS) != 0;
+    uint32_t IsFloat = (flags & VAR_FLAGS_FLOAT) != 0;
+    uint32_t IsFloat10 = (flags & VAR_FLAGS_FLOAT_10) != 0;
 
     char* buf = &tmpBuf[off][0];
     if (addr == 0x1000) {
@@ -70,11 +131,19 @@ static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
         sprintf(buf, "Param%d", addr - 0x1002);
     } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
-        if (constant == 0x40000000) {
+        if (IsFloat) {
+            sprintf(buf, "#%.5f", (float) (int32_t) constant );
+        } else if (IsFloat10) {
+            sprintf(buf, "#%.5f", (float) (int32_t) constant * 0.1);
+        } else if (IsFloat100) {
+            sprintf(buf, "#%.5f", (float) (int32_t) constant * 0.001);
+        } else if (IsRadians) {
+            sprintf(buf, "#%.5f", (float) (int32_t) constant * 6.283 * 0.0002441406);
+        } else if (constant == 0x40000000) {
             return "OptionCancel";
-        } else if (constant >= 0xffffff00) {
+        } else if (IsSignedInt || constant >= 0xffffff00) {
             sprintf(buf, "#%d", (int32_t) constant);
-        } else if (constant >= 0x80000000) {
+        } else if (IsHex || constant >= 0x7fffffc0) {
             sprintf(buf, "#$%08x", constant);
         } else {
             sprintf(buf, "#%u", constant);
@@ -86,19 +155,76 @@ static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
     return buf;
 }
 
-static const char* getVar32Name(const struct vm_t* vm, uint32_t off) {
-    uint16_t addr = lsb32(vm->code, vm->pc, off);
+static const char* getVar16Name(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, 0);
+}
+
+static const char* getVar16NameInt(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_INT);
+}
+
+static const char* getVar16NameFloat(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOAT);
+}
+
+static const char* getVar16NameFloat10(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOAT_10);
+}
+
+static const char* getVar16NameFloat100(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOAT_1000);
+}
+
+static const char* getVar16NameRadians(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_RADIANS);
+}
+
+static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
+    uint32_t addr = getImm32(vm, off);
 
     char* buf = &tmpBuf[off][0];
+
+/*
     if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
+
         if (constant == 0x40000000) {
             return "OptionCancel";
+        } else if (constant >= 0xffffff00) {
+            sprintf(buf, "#%d", (int32_t) constant);
+        } else if (constant >= 0x7fffffc0) {
+            sprintf(buf, "#$%08x", constant);
         } else {
             sprintf(buf, "#%u", constant);
         }
     } else {
-        sprintf(buf, "[%04x]", addr);
+        sprintf(buf, "[%08x]", addr);
+    }
+*/
+    const char* npcName = GetNPCName(vm->npc, addr);
+    if (npcName != NULL) {
+        sprintf(buf, "#%u[\"%s\"]", addr, npcName);
+    } else if (addr >= 0x7fffff00 && addr < 0x80000000) {
+        sprintf(buf, "[%08x]", addr);
+    } else {
+        sprintf(buf, "#$%08x", addr);
+    }
+
+    return buf;
+}
+
+static const char* getVar32FourCC(struct vm_t* vm, uint32_t off) {
+    uint32_t a = getImm8(vm, off + 0);
+    uint32_t b = getImm8(vm, off + 1);
+    uint32_t c = getImm8(vm, off + 2);
+    uint32_t d = getImm8(vm, off + 3);
+
+    char* buf = &tmpBuf[off][0];
+
+    if (!(isalnum(a) || a == ' ') || !(isalnum(b) || b == ' ') || !(isalnum(c) || c == ' ') || !(isalnum(d) || d == ' ')) {
+        sprintf(buf, "#$%02x%02x%02x%02x", a, b, c, d);
+    } else {
+        sprintf(buf, "#'%c%c%c%c'", a, b, c, d);
     }
 
     return buf;
@@ -124,14 +250,15 @@ static void OpcodeUNSUP(struct vm_t* vm) {
      printf("UNSUP %02x\n",
         lsb8(vm->code, vm->pc));
     vm->running = 0;
+    vm->unsup = 1;
 }
 
 static void Opcode00(struct vm_t* vm) {
     printf("END\n");
 
-    vm->pc += 1;
+    TrackEnd(vm, vm->pc + 1);
 
-    TrackEnd(vm, vm->pc);
+    vm->pc += 1;
 }
 
 static void Opcode01(struct vm_t* vm) {
@@ -180,6 +307,10 @@ static void Opcode02(struct vm_t* vm) {
         case 10:
             Op = "~!&";
             break;
+        default:
+            vm->running = 0;
+            vm->unsup = 1;
+            return;
     }
 
     printf("CMP %s %s %s, L%04X\n",
@@ -325,7 +456,7 @@ static void Opcode15(struct vm_t* vm) {
 static void Opcode16(struct vm_t* vm) {
     printf("SIN %s, %s, %s\n",
         getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
+        getVar16NameRadians(vm, 3),
         getVar16Name(vm, 5));
     vm->pc += 7;
 }
@@ -333,7 +464,7 @@ static void Opcode16(struct vm_t* vm) {
 static void Opcode17(struct vm_t* vm) {
     printf("COS %s, %s, %s\n",
         getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
+        getVar16NameRadians(vm, 3),
         getVar16Name(vm, 5));
     vm->pc += 7;
 }
@@ -364,14 +495,14 @@ static void Opcode1A(struct vm_t* vm) {
 
 static void Opcode1B(struct vm_t* vm) {
     printf("RET\n");
-    vm->pc += 1;
 
-    TrackEnd(vm, vm->pc);
+    TrackEnd(vm, vm->pc + 1);
+    vm->pc += 1;
 }
 
 static void Opcode1C(struct vm_t* vm) {
-    printf("Opcode1C %s\n",
-        getVar16Name(vm, 1));
+    printf("WAIT %s\n",
+        getVar16NameFloat(vm, 1));
     vm->pc += 3;
 }
 
@@ -401,20 +532,22 @@ static void Opcode1E(struct vm_t* vm) {
 static void Opcode1F(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
-    if (param != 0) {
-        // I have no freakin' clue how to determine this!
+    if (param == 0) {
+        printf("Opcode1F %02x, %s, %s, %s\n",
+            param,
+            getVar16NameFloat100(vm, 2),
+            getVar16NameFloat100(vm, 4),
+            getVar16NameFloat100(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 1) {
         printf("Opcode1F %02x\n",
             param);
 
         vm->pc += 2;
     } else {
-        printf("Opcode1F %02x, %s, %s, %s\n",
-            param,
-            getVar16Name(vm, 2),
-            getVar16Name(vm, 4),
-            getVar16Name(vm, 6));
-
-        vm->pc += 8;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -526,7 +659,7 @@ static void Opcode2C(struct vm_t* vm) {
     printf("Opcode2C %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -535,7 +668,7 @@ static void Opcode2D(struct vm_t* vm) {
     printf("Opcode2D %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -567,7 +700,7 @@ static void Opcode31(struct vm_t* vm) {
 
 static void Opcode32(struct vm_t* vm) {
     printf("Opcode32 %s\n",
-        getVar16Name(vm, 1));
+        getVar16NameFloat10(vm, 1));
     vm->pc += 3;
 }
 
@@ -592,19 +725,19 @@ static void Opcode35(struct vm_t* vm) {
 
 static void Opcode36(struct vm_t* vm) {
     printf("Opcode36 %s, %s, %s\n",
-        getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
-        getVar16Name(vm, 5));
+        getVar16NameFloat100(vm, 1),
+        getVar16NameFloat100(vm, 3),
+        getVar16NameFloat100(vm, 5));
 
     vm->pc += 7;
 }
 
 static void Opcode37(struct vm_t* vm) {
     printf("Opcode37 %s, %s, %s, %s\n",
-        getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
-        getVar16Name(vm, 5),
-        getVar16Name(vm, 7));
+        getVar16NameFloat100(vm, 1),
+        getVar16NameFloat100(vm, 3),
+        getVar16NameFloat100(vm, 5),
+        getVar16NameRadians(vm, 7));
     vm->pc += 9;
 }
 
@@ -702,9 +835,18 @@ static void Opcode42(struct vm_t* vm) {
 };
 
 static void Opcode43(struct vm_t* vm) {
-    printf("Opcode43 %02x\n",
-        lsb8(vm->code, vm->pc, 1));
-    vm->pc += 2;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("UPDATEEVENT\n");
+        vm->pc += 2;
+    } else if (param == 1) {
+        printf("UPDATEEVENT WAIT\n");
+        vm->pc += 2;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void Opcode44(struct vm_t* vm) {
@@ -722,7 +864,7 @@ static void Opcode45(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -738,22 +880,24 @@ static void Opcode46(struct vm_t* vm) {
 }
 
 static void Opcode47(struct vm_t* vm) {
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint32_t param = getImm8(vm, 1);
 
-    if (param != 0) {
-        printf("Opcode47 %02x\n",
-            param);
+    if (param == 0) {
+        // Send a Warp Request (0x5c) packet
+        printf("WARPPLAYER %s, %s, %s, %s\n",
+            getVar16NameFloat100(vm, 2),
+            getVar16NameFloat100(vm, 4),
+            getVar16NameFloat100(vm, 6),
+            getVar16NameRadians(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 1) {
+        printf("WARPPLAYER WAIT\n");
 
         vm->pc += 2;
     } else {
-        printf("Opcode47 %02x, %s, %s, %s, %s\n",
-            param,
-            getVar16Name(vm, 2),
-            getVar16Name(vm, 4),
-            getVar16Name(vm, 6),
-            getVar16Name(vm, 8));
-
-        vm->pc += 10;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -848,7 +992,7 @@ static void Opcode52(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -857,7 +1001,7 @@ static void Opcode53(struct vm_t* vm) {
     printf("Opcode53 %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -876,7 +1020,7 @@ static void Opcode55(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -889,37 +1033,58 @@ static void Opcode56(struct vm_t* vm) {
 }
 
 static void Opcode57(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode57 %s\n",
+        getVar16Name(vm, 1));
+
+    vm->pc += 3;
+}
 
 static void Opcode58(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode58\n");
+
+    vm->pc += 1;
+}
 
 static void Opcode59(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode5A(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("Opcode5A %02x, %s, %s, %s\n",
+            param,
+            getVar16NameFloat100(vm, 2),
+            getVar16NameFloat100(vm, 4),
+            getVar16NameFloat100(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 1) {
+        printf("Opcode5A %02x\n",
+            param);
+        vm->pc += 2;
+    } else {
+        // ???
+        printf("Opcode5A %02x\n",
+            param);
+        vm->pc += 2;
+    }
+}
 
 static void Opcode5B(struct vm_t* vm) {
     printf("Opcode5B %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
 
 static void Opcode5C(struct vm_t* vm) {
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint32_t param = getImm8(vm, 1);
 
     if (param >= 0 && param <= 7) {
         printf("Opcode5C %02x, %s\n",
@@ -961,7 +1126,7 @@ static void Opcode5D(struct vm_t* vm) {
 
 static void Opcode5E(struct vm_t* vm) {
     printf("Opcode5E %s\n",
-        getVar32Name(vm, 1));
+        getVar32FourCC(vm, 1));
 
     vm->pc += 5;
 }
@@ -988,7 +1153,7 @@ static void Opcode62(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -1026,7 +1191,7 @@ static void Opcode66(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -1055,7 +1220,7 @@ static void Opcode69(struct vm_t* vm) {
 
 static void Opcode6A(struct vm_t* vm) {
     printf("Opcode6A %s, %s, %s\n",
-        getVar16Name(vm, 1),
+        getVar16NameFloat100(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5));
 
@@ -1127,11 +1292,14 @@ static void Opcode71(struct vm_t* vm) {
             getVar16Name(vm, 2));
         vm->pc += 4;
     } else if (param == 16) {
-        printf("Opcode71 %02x, %s\n",
-            param,
+        printf("READPASSWORD NUMBER, %s\n",
             getVar16Name(vm, 2));
         vm->pc += 4;
-    } else if (param == 17 || param == 19) {
+    } else if (param == 17) {
+        printf("READPASSWORD STORENUMBER, %s\n",
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 19) {
         printf("Opcode71 %02x, %s\n",
             param,
             getVar16Name(vm, 2));
@@ -1328,9 +1496,11 @@ static void Opcode79(struct vm_t* vm) {
 
         vm->pc += 10;
     } else {
-        // Effectively a NOP
+        // ???
         printf("Opcode79 %02x\n",
             param);
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -1362,8 +1532,46 @@ static void Opcode7D(struct vm_t* vm) {
 }
 
 static void Opcode7E(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm16(vm, 1);
+
+    if (param == 0 || param == 1 || param == 2 || param == 4 || param == 5 || param == 8) {
+        printf("Opcode7E %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    } else if (param == 3) {
+        printf("Opcode7E %02x, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14));
+        vm->pc += 16;
+    } else if (param == 6) {
+        printf("Opcode7E %02x, %s, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14),
+            getVar16Name(vm, 16));
+        vm->pc += 18;
+    } else if (param == 7) {
+        printf("Opcode7E %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else  {
+        printf("Opcode7E %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    }
 }
 
 static void Opcode7F(struct vm_t* vm) {
@@ -1462,8 +1670,8 @@ static void Opcode8B(struct vm_t* vm) {
     printf("Opcode8B %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
-        getVar16Name(vm, 5),
-        getVar16Name(vm, 7),
+        getVar16NameFloat100(vm, 5),
+        getVar16NameFloat100(vm, 7),
         text);
 
     FreePrintableText(text);
@@ -1697,7 +1905,7 @@ static void Opcode9F(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -1708,7 +1916,7 @@ static void OpcodeA0(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -1718,7 +1926,7 @@ static void OpcodeA1(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -1728,7 +1936,7 @@ static void OpcodeA2(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -1738,7 +1946,7 @@ static void OpcodeA3(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -1983,7 +2191,7 @@ static void OpcodeAB(struct vm_t* vm) {
 }
 
 static void OpcodeAC(struct vm_t* vm) {
-    uint8_t param = lsb8(vm->code, vm->pc, 1);
+    uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
         printf("OpcodeAC %02x, %s\n",
@@ -2020,8 +2228,15 @@ static void OpcodeAC(struct vm_t* vm) {
 }
 
 static void OpcodeAD(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    printf("OpcodeAD %02x, %s, %s, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2),
+        getVar32Name(vm, 4),
+        getVar32Name(vm, 8));
+
+    vm->pc += 12;
 }
 
 static void OpcodeAE(struct vm_t* vm) {
@@ -2058,8 +2273,23 @@ static void OpcodeB1(struct vm_t* vm) {
 }
 
 static void OpcodeB2(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("OpcodeB2 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 1) {
+        printf("OpcodeB2 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB3(struct vm_t* vm) {
@@ -2068,8 +2298,160 @@ static void OpcodeB3(struct vm_t* vm) {
 }
 
 static void OpcodeB4(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        const char* text = GetPrintableText(&vm->code[vm->pc + 4], 16);
+
+        printf("OpcodeB4 %02x, %s, \"%s\"\n",
+            param,
+            getVar16Name(vm, 2),
+            text);
+
+        FreePrintableText(text);
+        vm->pc += 20;
+    } else if (param == 1) {
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 2) {
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 3) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 4) {
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 5) {
+        printf("OpcodeB4 %02x, %02x\n",
+            param,
+            getImm8(vm, 2));
+
+        vm->pc += 3;
+    } else if (param == 6) {
+        printf("OpcodeB4 %02x, %02x\n",
+            param,
+            getImm8(vm, 2));
+
+        vm->pc += 3;
+    } else if (param == 7) {
+        printf("OpcodeB4 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 8) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 9) {
+        printf("OpcodeB4 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 10) {
+        printf("OpcodeB4 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 11) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 12) {
+        printf("OpcodeB4 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 13) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 14) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 15) {
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 16) {
+        // ???
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 17) {
+        // ???
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 18) {
+        // ???
+        printf("OpcodeB4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    } else if (param == 19) {
+        const char* text = GetPrintableText(&vm->code[vm->pc + 4], 16);
+
+        printf("OpcodeB4 %02x, %s, %sn",
+            param,
+            getVar16Name(vm, 2),
+            text);
+
+        FreePrintableText(text);
+        vm->pc += 20;
+    } else if (param == 20) {
+        printf("OpcodeB4 %02x, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16NameFloat100(vm, 2),
+            getVar16NameFloat100(vm, 4),
+            getVar16NameFloat100(vm, 6),
+            getVar16NameFloat100(vm, 8),
+            getVar16Name(vm, 10));
+
+        vm->pc += 12;
+    } else if (param == 21) {
+        printf("OpcodeB4 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB5(struct vm_t* vm) {
@@ -2081,8 +2463,101 @@ static void OpcodeB5(struct vm_t* vm) {
 }
 
 static void OpcodeB6(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 1) {
+         printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param >= 2 && param <= 10) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 11) {
+        printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14),
+            getVar16Name(vm, 16),
+            getVar16Name(vm, 18));
+
+        vm->pc += 20;
+    } else if (param == 12) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 13) {
+        printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12));
+
+        vm->pc += 14;
+    } else if (param == 14) {
+        printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14));
+
+        vm->pc += 16;
+    } else if (param == 15) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 16) {
+        printf("OpcodeB6 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 17) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 18 || param == 19) {
+        printf("OpcodeB6 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 20 || param == 21) {
+        printf("OpcodeB6 %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+
+        vm->pc += 6;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB7(struct vm_t* vm) {
@@ -2102,8 +2577,8 @@ static void OpcodeB8(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5),
-        getVar16Name(vm, 7),
-        getVar16Name(vm, 9),
+        getVar16NameFloat100(vm, 7),
+        getVar16NameFloat100(vm, 9),
         text);
 
     FreePrintableText(text);
@@ -2124,10 +2599,10 @@ static void OpcodeB9(struct vm_t* vm) {
 static void OpcodeBA(struct vm_t* vm) {
     printf("OpcodeBA %s, %s, %s, %s, %s\n",
         getVar32Name(vm, 1),
-        getVar16Name(vm, 5),
-        getVar16Name(vm, 7),
-        getVar16Name(vm, 9),
-        getVar16Name(vm, 11));
+        getVar16NameFloat100(vm, 5),
+        getVar16NameFloat100(vm, 7),
+        getVar16NameFloat100(vm, 9),
+        getVar16NameFloat100(vm, 11));
 
     vm->pc += 13;
 }
@@ -2137,7 +2612,7 @@ static void OpcodeBB(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -2148,7 +2623,7 @@ static void OpcodeBC(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2158,7 +2633,7 @@ static void OpcodeBD(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2188,13 +2663,39 @@ static void OpcodeC1(struct vm_t* vm) {
 }
 
 static void OpcodeC2(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 1) {
+        printf("OpcodeC2 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 2) {
+        printf("OpcodeC2 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else {
+        printf("OpcodeC2 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
+    }
 }
 
 static void OpcodeC3(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    printf("OpcodeC3 %s, %s, %s\n",
+        // array index (stride 20 bytes)
+        getVar16Name(vm, 1),
+        // ptr to work area, copies 16 bytes to element
+        getVar16Name(vm, 3),
+        // the remaining 4 bytes to copy into the element
+        getVar16Name(vm, 5));
+
+    vm->pc += 7;
 }
 
 static void OpcodeC4(struct vm_t* vm) {
@@ -2207,7 +2708,7 @@ static void OpcodeC5(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -2218,7 +2719,7 @@ static void OpcodeC6(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2228,7 +2729,7 @@ static void OpcodeC7(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2315,7 +2816,7 @@ static void OpcodeCD(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -2326,7 +2827,7 @@ static void OpcodeCE(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2336,7 +2837,7 @@ static void OpcodeCF(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2346,7 +2847,7 @@ static void OpcodeD0(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -2357,7 +2858,7 @@ static void OpcodeD1(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2367,7 +2868,7 @@ static void OpcodeD2(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2390,7 +2891,7 @@ static void OpcodeD5(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11),
+        getVar32FourCC(vm, 11),
         getVar16Name(vm, 15));
 
     vm->pc += 17;
@@ -2401,7 +2902,7 @@ static void OpcodeD6(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2411,7 +2912,7 @@ static void OpcodeD7(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
-        getVar32Name(vm, 11));
+        getVar32FourCC(vm, 11));
 
     vm->pc += 15;
 }
@@ -2687,6 +3188,7 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
     vm.code = script;
     vm.pc = 0;
     vm.running = 1;
+    vm.unsup = 0;
     vm.length = length;
 
     vm.constants = constants;
@@ -2695,14 +3197,16 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
     vm.dialog = dialog;
     vm.npc = npc;
 
-    vm.addrEnd = (uint32_t*) calloc(length, sizeof(uint32_t));
+    vm.addrEnd = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
     vm.addrEndLen = 0;
 
-    vm.addrJmp = (uint32_t*) calloc(length, sizeof(uint32_t));
+    vm.addrJmp = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
     vm.addrJmpLen = 0;
 
-    vm.addrData = (uint32_t*) calloc(length, sizeof(uint32_t));
+    vm.addrData = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
     vm.addrDataLen = 0;
+
+    TrackJmp(&vm, length);
 
     for (uint32_t i = 0; i < numEvents; i++) {
         TrackJmp(&vm, eventOffsets[i]);
@@ -2718,37 +3222,28 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
         printf("L%04X: ", vm.pc);
         OpcodeTable[vm.code[vm.pc]](&vm);
 
-        if (vm.running == 0 && OpcodeTable[vm.code[vm.pc]] == &OpcodeUNSUP) {
-            // uint32_t addrEnd = 0;
+        if (vm.unsup != 0) {
             uint32_t addrJmp = 0xffffffff;
             uint32_t addrData = 0xffffffff;
 
-            // for (uint32_t i = 0; i < vm.addrEndLen; i++) {
-            //    printf("addrEnd : L%04x\n", vm.addrEnd[i]);
-            //
-            //    if (vm.addrEnd[i] > addrEnd) {
-            //        addrEnd = vm.addrEnd[i];
-            //    }
-            // }
             for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-                // printf("addrData: L%04x\n", vm.addrData[i]);
-
-                if (vm.addrData[i] < addrData) {
-                    addrData = vm.addrData[i];
+                if (!vm.addrData[i].active) {
+                    continue;
+                }
+                if (vm.addrData[i].destination < addrData) {
+                    addrData = vm.addrData[i].destination;
                 }
             }
             for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-                // printf("addrJmp : L%04x\n", vm.addrJmp[i]);
-
-                if (vm.addrJmp[i] > addrData && vm.addrJmp[i] < addrJmp) {
-                    addrJmp = vm.addrJmp[i];
+                if (!vm.addrJmp[i].active) {
+                    continue;
+                }
+                if (vm.addrJmp[i].destination > addrData && vm.addrJmp[i].destination < addrJmp) {
+                    addrJmp = vm.addrJmp[i].destination;
                 }
             }
 
             printf("# Candidates: \n");
-            // if (addrEnd < 0xffffffff) {
-            //     printf("addrEnd : L%04x\n", addrEnd);
-            // }
             if (addrJmp < 0xffffffff) {
                 printf("# addrJmp : L%04X\n", addrJmp);
             }
@@ -2765,9 +3260,42 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
                 }
                 printf("\n");
 
+                // Remove old candidates
+                for (uint32_t i = 0; i < vm.addrDataLen; i++) {
+                    if (vm.addrData[i].destination <= addrJmp) {
+                        vm.addrData[i].active = 0;
+                    }
+                }
+
+                for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
+                    if (vm.addrJmp[i].destination <= addrJmp) {
+                        vm.addrJmp[i].active = 0;
+                    }
+                }
+
+                // TrackData(&vm, addrJmp - 1);
+
                 printf("# Resuming at L%04X...\n", addrJmp);
 
                 vm.running = 1;
+                vm.unsup = 0;
+                vm.pc = addrJmp;
+            }
+        } else if (vm.running == 0 && vm.pc < vm.length) {
+            uint32_t addrJmp = 0xffffffff;
+
+            for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
+                if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
+                    addrJmp = vm.addrJmp[i].destination;
+                }
+            }
+
+            if (addrJmp < 0xffffffff) {
+                printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
+                printf("# Skipping ahead to at L%04X...\n", addrJmp);
+
+                vm.running = 1;
+                vm.unsup = 0;
                 vm.pc = addrJmp;
             }
         }
@@ -2779,7 +3307,7 @@ int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOff
         printf("# Finished!\n");
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");
-    } else if (vm.running == 0) {
+    } else if (vm.running == 0 || vm.unsup != 0) {
         printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
     } else {
         printf("# Underrun\n");
