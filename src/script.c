@@ -2646,8 +2646,42 @@ static void OpcodeBE(struct vm_t* vm) {
 }
 
 static void OpcodeBF(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("CHOCOBORACE GetRaceParam, %s, %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 32) {
+        printf("CHOCOBORACE GetChocoboParam, %s, %s, %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 64) {
+        printf("CHOCOBORACE GetSectionParam, %s, %s, %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 96) {
+        printf("CHOCOBORACE GetResultParam, %s, %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+
+        vm->pc += 8;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeC0(struct vm_t* vm) {
