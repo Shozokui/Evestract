@@ -24,124 +24,119 @@ static const struct npc_entry_t* FindNPC(const struct npc_t* npc, uint32_t npcId
 
 int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc) {
 
-    uint32_t blockCount = lsb32(buf, 0);
-
-    uint32_t* blockSizes = (uint32_t*) malloc(blockCount * sizeof(uint32_t));
-    uint32_t* blockOffsets = (uint32_t*) malloc(blockCount * sizeof(uint32_t));
-
-    for (uint32_t i = 0; i < blockCount; i++) {
-        blockSizes[i] = lsb32(buf, 4 + i * 4);
+    struct event_zone_t* eventZone = (struct event_zone_t*) calloc(1, sizeof(struct event_zone_t));
+    if (eventZone == NULL) {
+        return -1;
     }
 
-    for (uint32_t i = 0; i < blockCount; i++) {
-        if (i > 0) {
-            blockOffsets[i] = blockOffsets[i-1] + blockSizes[i-1];
-        } else {
-            blockOffsets[i] = 4 + blockCount * 4;
-        }
+    uint32_t npcCount = lsb32(buf, 0);
+    uint32_t lengthOffset = 4;
+    uint32_t eventNpcOffset = lengthOffset + 4 * npcCount;
+
+    eventZone->numEvents = npcCount;
+
+    eventZone->events = (struct event_npc_t*) calloc(npcCount, sizeof(struct event_npc_t));
+    if (eventZone->events == NULL) {
+        return -1;
     }
 
-    printf("Event Block Count: %u\n", blockCount);
+    for (uint32_t i = 0; i < npcCount; i++) {
+        struct event_npc_t* eventNpc = &eventZone->events[i];
 
-    for (uint32_t i = 0; i < blockCount; i++) {
-        printf("Event Block %5u Offset: %u\n", i, blockOffsets[i]);
-        printf("Event Block %5u Size: %u\n", i, blockSizes[i]);
+        uint32_t eventNpcLength = lsb32(buf, lengthOffset);
+        lengthOffset += 4;
 
-        uint32_t offset = blockOffsets[i];
+        uint32_t offset = eventNpcOffset;
+        eventNpcOffset += eventNpcLength;
 
-        uint32_t actorId = lsb32(buf, offset, 0);
+        uint32_t NPCId = lsb32(buf, offset, 0);
         uint32_t eventCount = lsb32(buf, offset, 4);
+
         offset += 8;
 
-        const struct npc_entry_t* actor = FindNPC(npc, actorId);
-        if (actor != NULL) {
-            printf("Event Block %5u NPC %s (%u)\n", i, actor->name, actorId);
-        } else if (actorId == 2147483632) {
-             printf("Event Block %5u NPC %s (%u)\n", i, "[Zone]", actorId);
-        } else {
-            printf("Event Block %5u NPC Id: %u\n", i, actorId);
+        eventNpc->NPCId = NPCId;
+        eventNpc->numEvents = eventCount;
+
+        eventNpc->events = (struct event_t*) calloc(eventNpc->numEvents, sizeof(struct event_t));
+        if (eventNpc->events == NULL) {
+            return -1;
         }
 
-        printf("Event Block %5u Event Count: %u\n", i, eventCount);
-
-        uint32_t* eventOffsets = (uint32_t*) malloc(eventCount * sizeof(uint32_t));
-        uint32_t* eventIds = (uint32_t*) malloc(eventCount * sizeof(uint32_t));
-
-        for (uint32_t j = 0; j < eventCount; j++) {
-            uint32_t eventOffset = lsb16(buf, offset);
+        for (uint32_t j = 0; j < eventNpc->numEvents; j++) {
+            eventNpc->events[j].pc = lsb16(buf, offset);
             offset += 2;
-
-            eventOffsets[j] = eventOffset;
         }
 
-        for (uint32_t j = 0; j < eventCount; j++) {
-            uint32_t eventId = lsb16(buf, offset);
+        for (uint32_t j = 0; j < eventNpc->numEvents; j++) {
+            eventNpc->events[j].id = lsb16(buf, offset);
             offset += 2;
-
-            eventIds[j] = eventId;
         }
 
-        for (uint32_t j = 0; j < eventCount; j++) {
-            printf("Event Block %5u Event %5u Id: %5u Offset: %5u\n",
-                i,
-                j,
-                eventIds[j],
-                eventOffsets[j]);
-        }
-
-        uint32_t constantCount = lsb32(buf, offset);
+        eventNpc->numConstants = lsb32(buf, offset);
         offset += 4;
 
-        printf("Event Block %5u Constant Count: %u\n", i, constantCount);
+        eventNpc->constants = (uint32_t*) calloc(eventNpc->numConstants, sizeof(uint32_t));
+        if (eventNpc->constants == NULL) {
+            return -1;
+        }
 
-        uint32_t* constants = (uint32_t*) calloc(constantCount, sizeof(uint32_t));
-
-        for (uint32_t j = 0; j < constantCount; j++) {
-            uint32_t constant = lsb32(buf, offset);
+        for (uint32_t j = 0; j < eventNpc->numConstants; j++) {
+            eventNpc->constants[j] = lsb32(buf, offset);
             offset += 4;
-
-            constants[j] = constant;
-
-            printf("Event Block %5u Constant %5u: %u\n", i, j, constant);
         }
 
-        uint32_t scriptSize = lsb32(buf, offset);
+        eventNpc->bytecodeSize = lsb32(buf, offset);
         offset += 4;
-        uint32_t scriptOffset = offset;
 
-        printf("Event Block %5u Script Size: %u\n", i, scriptSize);
-/*
-        uint32_t* eventSizes = (uint32_t*) malloc(eventCount * sizeof(uint32_t));
-
-        for (uint32_t j = 0; j < eventCount; j++) {
-            if (j < (eventCount - 1)) {
-                eventSizes[j] = eventOffsets[j+1] - eventOffsets[j];
-            } else {
-                eventSizes[j] = scriptSize - eventOffsets[j];
-            }
+        eventNpc->bytecode = (uint8_t*) calloc(eventNpc->bytecodeSize, sizeof(uint8_t));
+        if (eventNpc->bytecode == NULL) {
+            return -1;
         }
 
-        for (uint32_t j = 0; j < eventCount; j++) {
-            offset = scriptOffset + eventOffsets[j];
-            uint32_t count = eventSizes[j];
+        memcpy(&eventNpc->bytecode[0], &buf[offset], eventNpc->bytecodeSize);
+    }
 
-            printf("Event Block %5u Event %5u Id: %5u Data:",
+    printf("Event NPC Count: %u\n", npcCount);
+
+    for (uint32_t i = 0; i < npcCount; i++) {
+        struct event_npc_t* eventNpc = &eventZone->events[i];
+
+        const struct npc_entry_t* entry = FindNPC(npc, eventNpc->NPCId);
+        if (entry != NULL) {
+            printf("Event NPC %5u NPC \"%s\" (%u)\n", i, entry->name, eventNpc->NPCId);
+        } else if (eventNpc->NPCId == 2147483632) {
+             printf("Event NPC %5u NPC %s (%u)\n", i, "[Zone]", eventNpc->NPCId);
+        } else {
+             printf("Event NPC %5u NPC %s (%u)\n", i, "[Unknown]", eventNpc->NPCId);
+        }
+
+        printf("Event NPC %5u Event Count: %u\n", i, eventNpc->numEvents);
+
+        for (uint32_t j = 0; j < eventNpc->numEvents; j++) {
+            struct event_t* event = &eventNpc->events[j];
+
+            printf("Event NPC %5u Event %5u Id: %5u PC: L%04X\n",
                 i,
                 j,
-                eventIds[j]);
-            for (uint32_t k = 0; k < count; k++) {
-                printf("%02x", lsb8(buf, offset, k));
-            }
-            printf("\n");
+                event->id,
+                event->pc);
         }
-*/
-        printf("Event Block %5u Code: ", i);
-        for (uint32_t k = 0; k < scriptSize; k++) {
-            printf("%02x", lsb8(buf, offset, k));
+
+        printf("Event NPC %5u Constant Count: %u\n", i, eventNpc->numConstants);
+
+        for (uint32_t j = 0; j < eventNpc->numConstants; j++) {
+            printf("Event NPC %5u Constant %5u: %u\n", i, j, eventNpc->constants[j]);
+        }
+
+        printf("Event NPC %5u Code Size: %u\n", i, eventNpc->bytecodeSize);
+
+        printf("Event NPC %5u Code: ", i);
+        for (uint32_t k = 0; k < eventNpc->bytecodeSize; k++) {
+            printf("%02x", eventNpc->bytecode[k]);
         }
         printf("\n");
 
-        ParseScript(&buf[scriptOffset], scriptSize, eventOffsets, eventIds, eventCount, constants, constantCount, dialog, npc);
+        ParseScript(eventZone, i, dialog, npc);
     }
 
     return 0;

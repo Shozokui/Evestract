@@ -6,6 +6,7 @@
 
 #include "bytes.h"
 #include "dialog.h"
+#include "event.h"
 #include "npc.h"
 #include "script.h"
 #include "text.h"
@@ -27,6 +28,7 @@ struct vm_t {
     uint32_t length;
     uint32_t numConstants;
 
+    const struct event_zone_t* eventZone;
     const struct dialog_t* dialog;
     const struct npc_t* npc;
 
@@ -184,23 +186,9 @@ static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
 
     char* buf = &tmpBuf[off][0];
 
-/*
-    if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
-        uint32_t constant = vm->constants[addr - 0x8000];
+    // When used as an NPC, values below 0xff000000
+    // return the script target.
 
-        if (constant == 0x40000000) {
-            return "OptionCancel";
-        } else if (constant >= 0xffffff00) {
-            sprintf(buf, "#%d", (int32_t) constant);
-        } else if (constant >= 0x7fffffc0) {
-            sprintf(buf, "#$%08x", constant);
-        } else {
-            sprintf(buf, "#%u", constant);
-        }
-    } else {
-        sprintf(buf, "[%08x]", addr);
-    }
-*/
     const char* npcName = GetNPCName(vm->npc, addr);
     if (npcName != NULL) {
         sprintf(buf, "#%u[\"%s\"]", addr, npcName);
@@ -225,6 +213,27 @@ static const char* getVar32FourCC(struct vm_t* vm, uint32_t off) {
         sprintf(buf, "#$%02x%02x%02x%02x", a, b, c, d);
     } else {
         sprintf(buf, "#'%c%c%c%c'", a, b, c, d);
+    }
+
+    return buf;
+}
+
+static const char* getEventLabelByAddrAndIndex(struct vm_t* vm, uint32_t addr, uint32_t off, uint32_t index) {
+    char* buf = &tmpBuf[off][0];
+
+    // Fallback value.
+    sprintf(buf, "#%d",  index);
+
+    for (uint32_t i = 0; i < vm->eventZone->numEvents; i++) {
+        const struct event_npc_t* eventNpc = &vm->eventZone->events[i];
+
+        if (eventNpc->NPCId == addr) {
+            if (index < eventNpc->numEvents) {
+                const struct event_t* event = &eventNpc->events[index];
+
+                sprintf(buf, "EventEntryPoint_%u_%u.L%04X", eventNpc->NPCId, event->id, event->pc);
+            }
+        }
     }
 
     return buf;
@@ -603,28 +612,44 @@ static void Opcode25(struct vm_t* vm) {
 static void Opcode26(struct vm_t* vm) {
     // todo - Some other stuffs.
     vm->running = 0;
-};
+}
 
 static void Opcode27(struct vm_t* vm) {
-    // Unsure
-    printf("Opcode27 %02x, %s, %02x\n",
+    uint32_t addr = getImm32(vm, 2);
+
+    // Starts an event for an npc, only halting if there are
+    // no free instances. The caller does not wait for the
+    // event to complete.
+    printf("STARTEVENT1 #%d, %s, %s\n",
         lsb8(vm->code, vm->pc, 1),
         getVar32Name(vm, 2),
-        lsb8(vm->code, vm->pc, 6));
+        getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
 
     vm->pc += 7;
 }
 
 static void Opcode28(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t addr = getImm32(vm, 2);
 
-static void Opcode29(struct vm_t* vm) {
-    printf("Opcode29 %02x, %s, %02x\n",
+    // Starts an event for an npc, waiting for the event to complete.
+    printf("STARTEVENT2 #%d, %s, %s\n",
         lsb8(vm->code, vm->pc, 1),
         getVar32Name(vm, 2),
-        lsb8(vm->code, vm->pc, 6));
+        getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
+
+    vm->pc += 7;
+}
+
+static void Opcode29(struct vm_t* vm) {
+    uint32_t addr = getImm32(vm, 2);
+
+    // Starts an event for an npc, waiting for the event to complete.
+    // The caller has an extra validity check over V2 to verify
+    // that the npc is still valid before waiting.
+    printf("STARTEVENT3 #%d, %s, %s\n",
+        lsb8(vm->code, vm->pc, 1),
+        getVar32Name(vm, 2),
+        getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
 
     vm->pc += 7;
 }
@@ -711,12 +736,14 @@ static void Opcode33(struct vm_t* vm) {
 }
 
 static void Opcode34(struct vm_t* vm) {
+    // Loads a zone.
     printf("Opcode34 %s\n",
         getVar16Name(vm, 1));
     vm->pc += 3;
 }
 
 static void Opcode35(struct vm_t* vm) {
+    // Loads a zone, slightly different from Opcode34 in an unknown way.
     printf("Opcode35 %s\n",
         getVar16Name(vm, 1));
 
@@ -1132,8 +1159,63 @@ static void Opcode5E(struct vm_t* vm) {
 }
 
 static void Opcode5F(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0 || param == 1) {
+        printf("Opcode5F %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 2) {
+        printf("Opcode5F %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    } else if (param == 3) {
+        printf("Opcode5F %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4),
+            getVar32Name(vm, 8),
+            getVar32Name(vm, 12));
+        vm->pc += 16;
+    } else if (param == 4) {
+        printf("Opcode5F %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4),
+            getVar32Name(vm, 8),
+            getVar32Name(vm, 12));
+        vm->pc += 16;
+    } else if (param == 5) {
+        printf("Opcode5F %02x, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4),
+            getVar32Name(vm, 8),
+            getVar32Name(vm, 12),
+            getVar16Name(vm, 16));
+        vm->pc += 18;
+    } else if (param == 6) {
+        printf("Opcode5F %02x, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4),
+            getVar32Name(vm, 8),
+            getVar32Name(vm, 12),
+            getVar16Name(vm, 16));
+        vm->pc += 18;
+    } else if (param == 7) {
+        printf("Opcode5F %02x, %s, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar32Name(vm, 6),
+            getVar32Name(vm, 10));
+        vm->pc += 14;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 };
 
 static void Opcode60(struct vm_t* vm) {
@@ -1260,7 +1342,7 @@ static void Opcode6E(struct vm_t* vm) {
 }
 
 static void Opcode6F(struct vm_t* vm) {
-    printf("Opcode6F\n");
+    printf("WAIT16\n");
 
     vm->pc += 1;
 }
@@ -1423,28 +1505,26 @@ static void Opcode75(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param == 0) {
-        printf("Opcode75 %02x, %s\n",
-            param,
+        printf("SETSUBREGIONID %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else if (param == 1) {
-        printf("Opcode75 %02x\n",
-            param);
+        printf("SETSUBREGIONID WAIT\n");
 
         vm->pc += 2;
     } else if (param == 2) {
-        printf("Opcode75 %02x, %s ???\n",
-            param,
+        // Sneaky. This assumes that the instruction is following
+        // a SETSUBREGIONID/SETSUBREGIONID WAIT pair.
+        vm->pc = vm->pc - 6;
+
+        printf("SETSUBREGIONID SEND %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 8;
     } else {
-        // Don't know
-        printf("Opcode75 %02x ???\n",
-            param);
-
-        vm->pc += 2;
+        vm->unsup = 1;
+        vm->running = 0;
     }
 }
 
@@ -1505,9 +1585,53 @@ static void Opcode79(struct vm_t* vm) {
 }
 
 static void Opcode7A(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t param = lsb8(vm->code, vm->pc, 1);
+
+    if (param == 0) {
+        printf("RESETEVENTS %s\n",
+            getVar32Name(vm, 2));
+
+        vm->pc += 6;
+    } else if (param == 1) {
+        uint32_t addr = getImm32(vm, 2);
+
+        printf("RESETEVENT %s, %s\n",
+            getVar32Name(vm, 2),
+            getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
+
+        vm->pc += 7;
+    } else if (param == 2) {
+        printf("SETLOCAL %s\n",
+            getVar32Name(vm, 2));
+
+        vm->pc += 6;
+    } else if (param == 3) {
+        printf("RESETLOCAL\n");
+
+        vm->pc += 2;
+    } else if (param == 4) {
+        uint32_t addr = getImm32(vm, 2);
+
+        printf("Opcode7A %02x, %02x, %s, %02x\n",
+            param,
+            lsb8(vm->code, vm->pc, 2),
+            getVar32Name(vm, 3),
+            lsb8(vm->code, vm->pc, 7));
+
+        vm->pc += 8;
+    } else if (param == 5) {
+        uint32_t addr = getImm32(vm, 2);
+
+        printf("Opcode7A %02x,  %s\n",
+            param,
+            getVar32Name(vm, 2));
+
+        vm->pc += 6;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
+}
 
 static void Opcode7B(struct vm_t* vm) {
     printf("Opcode7B %s\n",
@@ -1519,7 +1643,7 @@ static void Opcode7B(struct vm_t* vm) {
 static void Opcode7C(struct vm_t* vm) {
     printf("Opcode7C %02x, %s\n",
         lsb8(vm->code, vm->pc, 1),
-        getVar32Name(vm, 1));
+        getVar32Name(vm, 2));
 
     vm->pc += 6;
 }
@@ -1633,14 +1757,20 @@ static void Opcode86(struct vm_t* vm) {
 }
 
 static void Opcode87(struct vm_t* vm) {
-    printf("Opcode87 %02x\n",
+    // 0 - world pass
+    // 1 - wait?
+    // 2 - gold world pass
+    printf("WORLDPASS %02x\n",
         getImm8(vm, 1));
 
     vm->pc += 2;
 }
 
 static void Opcode88(struct vm_t* vm) {
-    printf("Opcode88 %02x\n",
+    // 0 - world pass
+    // 1 - wait?
+    // 2 - gold world pass
+    printf("WORLDPASSPURCHASE %02x\n",
         getImm8(vm, 1));
 
     vm->pc += 2;
@@ -2455,11 +2585,17 @@ static void OpcodeB4(struct vm_t* vm) {
 }
 
 static void OpcodeB5(struct vm_t* vm) {
-    printf("OpcodeB5 %02x, %s\n",
-        getImm8(vm, 1),
-        getVar16Name(vm, 2));
+    uint8_t param = getImm8(vm, 1);
 
-    vm->pc += 4;
+    if (param == 0) {
+        printf("SETENTITYNAME %s\n",
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB6(struct vm_t* vm) {
@@ -3215,41 +3351,47 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xff] = OpcodeUNSUP,
 };
 
-int ParseScript(const uint8_t* script, uint32_t length, const uint32_t* eventOffsets, const uint32_t* eventIds, uint32_t numEvents, const uint32_t* constants, uint32_t numConstants, const struct dialog_t* dialog, const struct npc_t* npc) {
+int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const struct dialog_t* dialog, const struct npc_t* npc) {
+
+    const struct event_npc_t* eventNpc = &eventZone->events[index];
 
     struct vm_t vm;
 
-    vm.code = script;
+    vm.code = eventNpc->bytecode;
     vm.pc = 0;
     vm.running = 1;
     vm.unsup = 0;
-    vm.length = length;
+    vm.length = eventNpc->bytecodeSize;
 
-    vm.constants = constants;
-    vm.numConstants = numConstants;
+    vm.constants = eventNpc->constants;
+    vm.numConstants = eventNpc->numConstants;
 
+    vm.eventZone = eventZone;
     vm.dialog = dialog;
     vm.npc = npc;
 
-    vm.addrEnd = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
+    vm.addrEnd = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
     vm.addrEndLen = 0;
 
-    vm.addrJmp = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
+    vm.addrJmp = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
     vm.addrJmpLen = 0;
 
-    vm.addrData = (struct reference_t*) calloc(length + numEvents, sizeof(struct reference_t));
+    vm.addrData = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
     vm.addrDataLen = 0;
 
-    TrackJmp(&vm, length);
+    TrackJmp(&vm, vm.length);
 
-    for (uint32_t i = 0; i < numEvents; i++) {
-        TrackJmp(&vm, eventOffsets[i]);
+    for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
+        const struct event_t* event = &eventNpc->events[i];
+        TrackJmp(&vm, event->pc);
     }
 
     while (vm.running != 0 && vm.pc < vm.length) {
-        for (uint32_t i = 0; i < numEvents; i++) {
-            if (eventOffsets[i] == vm.pc) {
-                printf("EventEntryPoint_%u:\n", eventIds[i]);
+        for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
+            const struct event_t* event = &eventNpc->events[i];
+
+            if (event->pc == vm.pc) {
+                printf("EventEntryPoint_%u_%u:\n", eventNpc->NPCId, event->id);
             }
         }
 
