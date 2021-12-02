@@ -830,7 +830,8 @@ static void Opcode3E(struct vm_t* vm) {
 }
 
 static void Opcode3F(struct vm_t* vm) {
-    printf("Opcode3F %s, %s, %s\n",
+    // MOD D <- L % R
+    printf("MOD %s, %s %% %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5));
@@ -839,20 +840,30 @@ static void Opcode3F(struct vm_t* vm) {
 }
 
 static void Opcode40(struct vm_t* vm) {
-    printf("Opcode40 %s, %s, %s, %s\n",
-        getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
+    // Creates a bitmask to merge two values
+    // MASK = ((1 << (P2 - P1)) - 1) << P1
+    // P3 = ((P4 << P1) & MASK) | (P3 & ~MASK)
+    //
+    // BITMASK P3 <- P4, [P1, P2]
+    printf("BITMASK %s, %s, b[%s, %s]\n",
         getVar16Name(vm, 5),
-        getVar16Name(vm, 7));
+        getVar16Name(vm, 7),
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3));
     vm->pc += 9;
 }
 
 static void Opcode41(struct vm_t* vm) {
-    printf("Opcode41 %s, %s, %s, %s\n",
-        getVar16Name(vm, 1),
-        getVar16Name(vm, 3),
+    // Creates a bitmask to extract a value
+    // MASK = ((1 << (P2 - P1)) - 1) << P1
+    // P3 = (P4 & MASK) >> P1
+    //
+    // BITUNMASK P3 <- P4, [P1, P2]
+    printf("BITUNMASK %s, %s, %s, %s\n",
         getVar16Name(vm, 5),
-        getVar16Name(vm, 7));
+        getVar16Name(vm, 7),
+        getVar16Name(vm, 1),
+        getVar16Name(vm, 3));
     vm->pc += 9;
 };
 
@@ -1073,8 +1084,62 @@ static void Opcode58(struct vm_t* vm) {
 }
 
 static void Opcode59(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint32_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("Opcode59 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 1) {
+        printf("Opcode59 %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 2) {
+        printf("Opcode59 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 3) {
+        printf("Opcode59 %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 4) {
+        printf("Opcode59 %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 5) {
+        printf("Opcode59 %02x, %s, #$%02x\n",
+            param,
+            getVar32Name(vm, 2),
+            getImm8(vm, 6));
+        vm->pc += 7;
+    } else if (param == 6) {
+        printf("Opcode59 %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    } else if (param == 7) {
+        printf("Opcode59 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+        vm->pc += 4;
+    } else if (param == 8) {
+        printf("Opcode59 %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void Opcode5A(struct vm_t* vm) {
@@ -2370,8 +2435,64 @@ static void OpcodeAD(struct vm_t* vm) {
 }
 
 static void OpcodeAE(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint32_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+        vm->pc += 6;
+    } else if (param == 1) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 2) {
+        printf("OpcodeAE %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        // not a typo, last two bytes are ignored
+        vm->pc += 8;
+    } else if (param == 3) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 4) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 5) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar32Name(vm, 6));
+        vm->pc += 10;
+    } else if (param == 6) {
+        printf("OpcodeAE %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    } else if (param == 7) {
+        printf("OpcodeAE %02x, %s, %s\n",
+            param,
+            getVar32Name(vm, 2),
+            getVar32FourCC(vm, 6));
+        vm->pc += 10;
+    } else if (param == 8) {
+        printf("OpcodeAE %02x, %s\n",
+            param,
+            getVar32Name(vm, 2));
+        vm->pc += 6;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeAF(struct vm_t* vm) {
@@ -2842,17 +2963,17 @@ static void OpcodeC2(struct vm_t* vm) {
 
         vm->pc += 4;
     } else if (param == 2) {
-        printf("OpcodeC2 %02x\n",
-            param);
-
-        vm->pc += 2;
-    } else {
         printf("OpcodeC2 %02x, %s, %s\n",
             param,
             getVar16Name(vm, 2),
             getVar16Name(vm, 4));
 
         vm->pc += 6;
+    } else {
+        printf("OpcodeC2 %02x\n",
+            param);
+
+        vm->pc += 2;
     }
 }
 
@@ -3391,7 +3512,7 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
             const struct event_t* event = &eventNpc->events[i];
 
             if (event->pc == vm.pc) {
-                printf("EventEntryPoint_%u_%u:\n", eventNpc->NPCId, event->id);
+                printf("EventEntryPoint_%u_%u.L%04X:\n", eventNpc->NPCId, event->id, vm.pc);
             }
         }
 
@@ -3403,6 +3524,7 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
             uint32_t addrData = 0xffffffff;
 
             for (uint32_t i = 0; i < vm.addrDataLen; i++) {
+                // printf("d %u %u %u %u\n", i, vm.addrData[i].active, vm.addrData[i].destination, addrData);
                 if (!vm.addrData[i].active) {
                     continue;
                 }
@@ -3410,7 +3532,11 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
                     addrData = vm.addrData[i].destination;
                 }
             }
+            if (addrData == 0xffffffff) {
+                addrData = vm.pc;
+            }
             for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
+                // printf("j %u %u %u %u\n", i, vm.addrJmp[i].active, vm.addrJmp[i].destination, addrJmp);
                 if (!vm.addrJmp[i].active) {
                     continue;
                 }
