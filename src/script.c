@@ -112,6 +112,7 @@ static uint32_t getImm32(const struct vm_t* vm, uint32_t off) {
 #define VAR_FLAGS_RADIANS       0x0008
 #define VAR_FLAGS_FLOAT         0x0010
 #define VAR_FLAGS_FLOAT_10      0x0020
+#define VAR_FLAGS_FLOATX10      0x0040
 
 static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, uint32_t flags) {
     uint16_t addr = lsb16(vm->code, vm->pc, off);
@@ -123,6 +124,7 @@ static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, ui
     uint32_t IsRadians = (flags & VAR_FLAGS_RADIANS) != 0;
     uint32_t IsFloat = (flags & VAR_FLAGS_FLOAT) != 0;
     uint32_t IsFloat10 = (flags & VAR_FLAGS_FLOAT_10) != 0;
+    uint32_t IsFloatX10 = (flags & VAR_FLAGS_FLOATX10) != 0;
 
     char* buf = &tmpBuf[off][0];
     if (addr == 0x1000) {
@@ -134,7 +136,9 @@ static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, ui
     } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
         if (IsFloat) {
-            sprintf(buf, "#%.5f", (float) (int32_t) constant );
+            sprintf(buf, "#%.5f", (float) (int32_t) constant);
+        } else if (IsFloatX10) {
+            sprintf(buf, "#%.5f", (float) (int32_t) constant * 10.0);
         } else if (IsFloat10) {
             sprintf(buf, "#%.5f", (float) (int32_t) constant * 0.1);
         } else if (IsFloat100) {
@@ -169,6 +173,10 @@ static const char* getVar16NameFloat(const struct vm_t* vm, uint32_t off) {
     return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOAT);
 }
 
+static const char* getVar16NameFloatX10(const struct vm_t* vm, uint32_t off) {
+    return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOATX10);
+}
+
 static const char* getVar16NameFloat10(const struct vm_t* vm, uint32_t off) {
     return getVar16NameWithFlags(vm, off, VAR_FLAGS_FLOAT_10);
 }
@@ -193,7 +201,18 @@ static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
     if (npcName != NULL) {
         sprintf(buf, "#%u[\"%s\"]", addr, npcName);
     } else if (addr >= 0x7fffff00 && addr < 0x80000000) {
-        sprintf(buf, "[%08x]", addr);
+        switch (addr) {
+            case 0x7fffffc0:
+            case 0x7ffffff0:
+            case 0x7ffffff9:
+                sprintf(buf, "[Player]");
+                break;
+            case 0x7ffffff8:
+                sprintf(buf, "[NPC]");
+                break;
+            default:
+                sprintf(buf, "[%08x]", addr);
+        }
     } else {
         sprintf(buf, "#$%08x", addr);
     }
@@ -542,16 +561,14 @@ static void Opcode1F(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param == 0) {
-        printf("Opcode1F %02x, %s, %s, %s\n",
-            param,
+        printf("MOVETO %s, %s, %s\n",
             getVar16NameFloat100(vm, 2),
             getVar16NameFloat100(vm, 4),
             getVar16NameFloat100(vm, 6));
 
         vm->pc += 8;
     } else if (param == 1) {
-        printf("Opcode1F %02x\n",
-            param);
+        printf("MOVETO WAIT\n");
 
         vm->pc += 2;
     } else {
@@ -719,12 +736,29 @@ static void Opcode30(struct vm_t* vm) {
 }
 
 static void Opcode31(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t param = lsb8(vm->code, vm->pc, 1);
+
+    // MOVETO3 interpolates x, y, z, ending after # frames
+    if (param == 0) {
+        printf("MOVETO3 %s, %s, %s, %s\n",
+            getVar16NameFloat100(vm, 2),
+            getVar16NameFloat100(vm, 4),
+            getVar16NameFloat100(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 1) {
+        printf("MOVETO3 WAIT\n");
+
+        vm->pc += 2;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
+}
 
 static void Opcode32(struct vm_t* vm) {
-    printf("Opcode32 %s\n",
+    printf("SETMOVEMENTSPEED %s\n",
         getVar16NameFloat10(vm, 1));
     vm->pc += 3;
 }
@@ -751,7 +785,8 @@ static void Opcode35(struct vm_t* vm) {
 }
 
 static void Opcode36(struct vm_t* vm) {
-    printf("Opcode36 %s, %s, %s\n",
+    // Set entity event position
+    printf("SETPOSITION %s, %s, %s\n",
         getVar16NameFloat100(vm, 1),
         getVar16NameFloat100(vm, 3),
         getVar16NameFloat100(vm, 5));
@@ -760,7 +795,8 @@ static void Opcode36(struct vm_t* vm) {
 }
 
 static void Opcode37(struct vm_t* vm) {
-    printf("Opcode37 %s, %s, %s, %s\n",
+    // Set entity event position and rotation
+    printf("SETPOSITION2 %s, %s, %s, %s\n",
         getVar16NameFloat100(vm, 1),
         getVar16NameFloat100(vm, 3),
         getVar16NameFloat100(vm, 5),
@@ -791,7 +827,7 @@ static void Opcode3A(struct vm_t* vm) {
 }
 
 static void Opcode3B(struct vm_t* vm) {
-    printf("Opcode3B %s, %s, %s, %s\n",
+    printf("GETPOSITION %s, %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar16Name(vm, 5),
         getVar16Name(vm, 7),
@@ -1146,22 +1182,18 @@ static void Opcode5A(struct vm_t* vm) {
     uint32_t param = getImm8(vm, 1);
 
     if (param == 0) {
-        printf("Opcode5A %02x, %s, %s, %s\n",
-            param,
+        printf("MOVETO2 %s, %s, %s\n",
             getVar16NameFloat100(vm, 2),
             getVar16NameFloat100(vm, 4),
             getVar16NameFloat100(vm, 6));
 
         vm->pc += 8;
     } else if (param == 1) {
-        printf("Opcode5A %02x\n",
-            param);
+        printf("MOVETO2 WAIT\n");
         vm->pc += 2;
     } else {
-        // ???
-        printf("Opcode5A %02x\n",
-            param);
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -1906,8 +1938,8 @@ static void Opcode90(struct vm_t* vm) {
 }
 
 static void Opcode91(struct vm_t* vm) {
-    printf("Opcode91 %s\n",
-        getVar16Name(vm, 1));
+    printf("SETANIMATIONSPEED %s\n",
+        getVar16NameFloatX10(vm, 1));
 
     vm->pc += 3;
 }
@@ -2077,6 +2109,15 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 8));
 
         TrackData(vm, getImm16(vm, 2));
+
+        vm->pc += 10;
+    } else if (param == 13) {
+        printf("Opcode9D %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
 
         vm->pc += 10;
     } else if (param == 15) {
@@ -2999,8 +3040,13 @@ static void OpcodeC3(struct vm_t* vm) {
 }
 
 static void OpcodeC4(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    printf("OpcodeC4 %02x, %s, %s, %s\n",
+        getImm8(vm, 1),
+        getVar16Name(vm, 2),
+        getVar32Name(vm, 4),
+        getVar32Name(vm, 8));
+
+    vm->pc += 12;
 }
 
 static void OpcodeC5(struct vm_t* vm) {
