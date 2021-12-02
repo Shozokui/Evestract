@@ -859,7 +859,7 @@ static void Opcode41(struct vm_t* vm) {
     // P3 = (P4 & MASK) >> P1
     //
     // BITUNMASK P3 <- P4, [P1, P2]
-    printf("BITUNMASK %s, %s, %s, %s\n",
+    printf("BITUNMASK %s, %s, b[%s, %s]\n",
         getVar16Name(vm, 5),
         getVar16Name(vm, 7),
         getVar16Name(vm, 1),
@@ -1993,10 +1993,9 @@ static void Opcode9D(struct vm_t* vm) {
 
     if (param == 0) {
         // Array access
-        printf("Opcode9D %02x, L%04X, %s, %s\n",
-            param,
-            getImm16(vm, 2),
+        printf("READARRAY %s, L%04X[%s]\n",
             getVar16Name(vm, 4),
+            getImm16(vm, 2),
             getVar16Name(vm, 6));
 
         TrackData(vm, getImm16(vm, 2));
@@ -2035,11 +2034,10 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 8;
     } else if (param == 5) {
         // Array write
-        printf("Opcode9D %02x, L%04X, %s, %s\n",
-            param,
+        printf("WRITEARRAY L%04X[%s], %s\n",
             getImm16(vm, 2),
-            getVar16Name(vm, 4),
-            getVar16Name(vm, 6));
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 4));
 
         TrackData(vm, getImm16(vm, 2));
 
@@ -2072,18 +2070,29 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 6;
     } else if (param == 10) {
         // Bounded array access
-        printf("Opcode9D %02x, L%04X, %s, %s, %s\n",
-            param,
-            getImm16(vm, 2),
+        printf("READBOUNDEDARRAY %s, L%04X[%s, %s]\n",
             getVar16Name(vm, 4),
+            getImm16(vm, 2),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
+    } else if (param == 15) {
+        // Bounded array write
+        printf("WRITEBOUNDEDARRAY L%04X[%s, %s], %s\n",
+            getImm16(vm, 2),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 4));
+
+        TrackData(vm, getImm16(vm, 2));
+
+        vm->pc += 10;
     } else {
         // Todo
+        printf("# Opcode9D %02x ", param);
         vm->running = 0;
     }
 }
@@ -3173,9 +3182,73 @@ static void OpcodeD3(struct vm_t* vm) {
 }
 
 static void OpcodeD4(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint32_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        const char* message = getVar16Message(vm, 2);
+
+        if (message != NULL) {
+            printf("OpcodeD4 %02x, %s, %s, %s // %s\n",
+                param,
+                getVar16Name(vm, 2),
+                getVar16Name(vm, 4),
+                getVar16Name(vm, 6),
+                message);
+            FreePrintableText(message);
+        } else {
+            printf("OpcodeD4 %02x, %s, %s, %s\n",
+                param,
+                getVar16Name(vm, 2),
+                getVar16Name(vm, 4),
+                getVar16Name(vm, 6));
+        }
+        vm->pc += 8;
+    } else if (param == 1) {
+        printf("OpcodeD4 %02x, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+        vm->pc += 8;
+    } else if (param == 2) {
+        const char* message = getVar16Message(vm, 2);
+
+        if (message != NULL) {
+            printf("OpcodeD4 %02x, %s, %s, %s // %s\n",
+                param,
+                getVar16Name(vm, 2),
+                getVar16Name(vm, 4),
+                getVar16Name(vm, 6),
+                message);
+            FreePrintableText(message);
+        } else {
+            printf("OpcodeD4 %02x, %s, %s, %s\n",
+                param,
+                getVar16Name(vm, 2),
+                getVar16Name(vm, 4),
+                getVar16Name(vm, 6));
+        }
+        vm->pc += 8;
+    } else if (param == 3) {
+        printf("OpcodeD4 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+        vm->pc += 6;
+    } else if (param == 4 || param == 5) {
+        printf("OpcodeD4 %02x, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10));
+        vm->pc += 12;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
+}
 
 static void OpcodeD5(struct vm_t* vm) {
     printf("OpcodeD5 %s, %s, %s, %s, %s\n",
