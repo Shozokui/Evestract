@@ -16,17 +16,18 @@ int LoadNPC(struct npc_t** npc, const uint8_t* buf, uint32_t length) {
 
     // Auto-detect stride.
     uint32_t structLen = 0;
-    if (length >= 0x20) {
-        if (memcmp(buf, header, 0x20) == 0) {
-            structLen = 0x20;
-        } else if (memcmp(buf, header, 0x18) == 0) {
-            structLen = 0x1c;
-        } else {
-            fprintf(stderr, "invalid npc dat\n");
-            return -1;
-        }
+
+    if (length >= 0x20 && memcmp(buf, header, 0x20) == 0) {
+        structLen = 0x20;
+    } else if (length >= 0x1c && memcmp(buf, header, 0x1c) == 0) {
+        structLen = 0x1c;
     }
-    
+
+    if (structLen == 0) {
+        fprintf(stderr, "invalid npc dat\n");
+        return -1;
+    }
+
     if ((length % structLen) != 0) {
         fprintf(stderr, "bad npc dat length\n");
         return -1;
