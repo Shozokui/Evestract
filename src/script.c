@@ -228,7 +228,7 @@ static const char* getVar32FourCC(struct vm_t* vm, uint32_t off) {
 
     char* buf = &tmpBuf[off][0];
 
-    if (!(isalnum(a) || a == ' ') || !(isalnum(b) || b == ' ') || !(isalnum(c) || c == ' ') || !(isalnum(d) || d == ' ')) {
+    if (!(isalnum(a) || ispunct(a) || a == ' ') || !(isalnum(b) || ispunct(b) || b == ' ') || !(isalnum(c) || ispunct(c) || c == ' ') || !(isalnum(d) || ispunct(d) || d == ' ')) {
         sprintf(buf, "#$%02x%02x%02x%02x", a, b, c, d);
     } else {
         sprintf(buf, "#'%c%c%c%c'", a, b, c, d);
@@ -535,16 +535,15 @@ static void Opcode1C(struct vm_t* vm) {
 }
 
 static void Opcode1D(struct vm_t* vm) {
-    // Thought: Prints message to user.
     const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
-        printf("Opcode1D %s // %s\n",
+        printf("NPCSAY %s // %s\n",
             getVar16Name(vm, 1),
             message);
         FreePrintableText(message);
     } else {
-        printf("Opcode1D %s\n",
+        printf("NPCSAY %s\n",
             getVar16Name(vm, 1));
     }
 
@@ -605,14 +604,14 @@ static void Opcode24(struct vm_t* vm) {
     const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
-        printf("Opcode24 %s, %s, %s // %s\n",
+        printf("PROMPT %s, %s, %s // %s\n",
             getVar16Name(vm, 1),
             getVar16Name(vm, 3),
             getVar16Name(vm, 5),
             message);
         FreePrintableText(message);
     } else {
-        printf("Opcode24 %s, %s, %s\n",
+        printf("PROMPT %s, %s, %s\n",
             getVar16Name(vm, 1),
             getVar16Name(vm, 3),
             getVar16Name(vm, 5));
@@ -683,13 +682,13 @@ static void Opcode2B(struct vm_t* vm) {
     const char* message = getVar16Message(vm, 5);
 
     if (message != NULL) {
-        printf("Opcode2B %s, %s // %s\n",
+        printf("NPCSAY2 %s, %s // %s\n",
             getVar32Name(vm, 1),
             getVar16Name(vm, 5),
             message);
         FreePrintableText(message);
     } else {
-        printf("Opcode2B %s, %s\n",
+        printf("NPCSAY2 %s, %s\n",
             getVar32Name(vm, 1),
             getVar16Name(vm, 5));
     }
@@ -837,7 +836,10 @@ static void Opcode3B(struct vm_t* vm) {
 }
 
 static void Opcode3C(struct vm_t* vm) {
-    printf("Opcode3C %s, %s, %s\n",
+    // [P1+(P2>>5)] |= (1<<(P2&31))
+    // P3 is size of bit array in bytes
+    // Operation is ignored if (P2>>5)>=P3
+    printf("BITARRAYSET %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5));
@@ -846,7 +848,10 @@ static void Opcode3C(struct vm_t* vm) {
 }
 
 static void Opcode3D(struct vm_t* vm) {
-    printf("Opcode3D %s, %s, %s\n",
+    // [P1+(P2>>5)] &= ~(1<<(P2&31))
+    // P3 is size of bit array in bytes
+    // Operation is ignored if (P2>>5)>=P3
+    printf("BITARRAYCLR %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5));
@@ -855,7 +860,8 @@ static void Opcode3D(struct vm_t* vm) {
 }
 
 static void Opcode3E(struct vm_t* vm) {
-    printf("Opcode3E %s, %s, L%04X\n",
+    // Jump to P3 if [P1+(P2>>5)] & (1<<(P2&31)) is true
+    printf("BITARRAYTST %s, %s, L%04X\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getImm16(vm, 5));
@@ -924,7 +930,8 @@ static void Opcode43(struct vm_t* vm) {
 }
 
 static void Opcode44(struct vm_t* vm) {
-    printf("Opcode44 %s, L%04X\n",
+    // Jump to P2 if P1 is a valid EntityId in the entity table
+    printf("ISENTITY %s, L%04X\n",
         getVar16Name(vm, 1),
         getImm16(vm, 3));
 
@@ -976,16 +983,15 @@ static void Opcode47(struct vm_t* vm) {
 }
 
 static void Opcode48(struct vm_t* vm) {
-    // Thought: prints message to user
     const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
-        printf("Opcode48 %s // %s\n",
+        printf("PRINT %s // %s\n",
             getVar16Name(vm, 1),
             message);
         FreePrintableText(message);
     } else {
-        printf("Opcode48 %s\n",
+        printf("PRINT %s\n",
             getVar16Name(vm, 1));
     }
 
@@ -993,9 +999,19 @@ static void Opcode48(struct vm_t* vm) {
 }
 
 static void Opcode49(struct vm_t* vm) {
-    printf("Opcode49 %s, %s\n",
-        getVar32Name(vm, 1),
-        getVar16Name(vm, 5));
+    const char* message = getVar16Message(vm, 5);
+
+    if (message != NULL) {
+        printf("PRINT2 %s, %s // %s\n",
+            getVar32Name(vm, 1),
+            getVar16Name(vm, 5),
+            message);
+        FreePrintableText(message);
+    } else {
+        printf("PRINT2 %s, %s\n",
+            getVar32Name(vm, 1),
+            getVar16Name(vm, 5));
+    }
 
     vm->pc += 7;
 }
@@ -1047,7 +1063,7 @@ static void Opcode50(struct vm_t* vm) {
     printf("Opcode50 %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -1056,7 +1072,7 @@ static void Opcode51(struct vm_t* vm) {
     printf("Opcode51 %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -1084,7 +1100,7 @@ static void Opcode54(struct vm_t* vm) {
     printf("Opcode54 %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
-        getVar32Name(vm, 9));
+        getVar32FourCC(vm, 9));
 
     vm->pc += 13;
 }
@@ -1274,7 +1290,7 @@ static void Opcode5F(struct vm_t* vm) {
             getVar16Name(vm, 2),
             getVar32Name(vm, 4),
             getVar32Name(vm, 8),
-            getVar32Name(vm, 12));
+            getVar32FourCC(vm, 12));
         vm->pc += 16;
     } else if (param == 4) {
         printf("Opcode5F %02x, %s, %s, %s, %s\n",
@@ -1282,7 +1298,7 @@ static void Opcode5F(struct vm_t* vm) {
             getVar16Name(vm, 2),
             getVar32Name(vm, 4),
             getVar32Name(vm, 8),
-            getVar32Name(vm, 12));
+            getVar32FourCC(vm, 12));
         vm->pc += 16;
     } else if (param == 5) {
         printf("Opcode5F %02x, %s, %s, %s, %s, %s\n",
@@ -1290,7 +1306,7 @@ static void Opcode5F(struct vm_t* vm) {
             getVar16Name(vm, 2),
             getVar32Name(vm, 4),
             getVar32Name(vm, 8),
-            getVar32Name(vm, 12),
+            getVar32FourCC(vm, 12),
             getVar16Name(vm, 16));
         vm->pc += 18;
     } else if (param == 6) {
@@ -1299,7 +1315,7 @@ static void Opcode5F(struct vm_t* vm) {
             getVar16Name(vm, 2),
             getVar32Name(vm, 4),
             getVar32Name(vm, 8),
-            getVar32Name(vm, 12),
+            getVar32FourCC(vm, 12),
             getVar16Name(vm, 16));
         vm->pc += 18;
     } else if (param == 7) {
@@ -1307,7 +1323,7 @@ static void Opcode5F(struct vm_t* vm) {
             param,
             getVar32Name(vm, 2),
             getVar32Name(vm, 6),
-            getVar32Name(vm, 10));
+            getVar32FourCC(vm, 10));
         vm->pc += 14;
     } else {
         vm->running = 0;
@@ -1408,7 +1424,7 @@ static void Opcode6A(struct vm_t* vm) {
 
 static void Opcode6B(struct vm_t* vm) {
     printf("Opcode6B %s, %s\n",
-        getVar32Name(vm, 1),
+        getVar32FourCC(vm, 1),
         getVar32Name(vm, 5));
 
     vm->pc += 9;
@@ -1817,8 +1833,9 @@ static void Opcode81(struct vm_t* vm) {
 }
 
 static void Opcode82(struct vm_t* vm) {
-    printf("Opcode82 %s, L%04x\n",
-        getVar32Name(vm, 1),
+    // Jump if entity is in the specified RID
+    printf("INRID %s, L%04X\n",
+        getVar32FourCC(vm, 1),
         getImm16(vm, 5));
 
     TrackJmp(vm, getImm16(vm, 5));
@@ -1827,7 +1844,8 @@ static void Opcode82(struct vm_t* vm) {
 }
 
 static void Opcode83(struct vm_t* vm) {
-    printf("Opcode83 %s\n",
+    // P1 <- number of earth seconds since Mon Dec 31 2001 15:00:00 GMT+0000
+    printf("GETEARTHSECONDS %s\n",
         getVar16Name(vm, 1));
 
     vm->pc += 3;
@@ -2268,7 +2286,12 @@ static void OpcodeA9(struct vm_t* vm) {
 }
 
 static void OpcodeAA(struct vm_t* vm) {
-    printf("OpcodeAA %s, %s, %s, %s, %s, %s, %s, %s\n",
+    // P1: See GETEARTHSECONDS for how to interpret this value
+    // P2 <- VanaYears(P1)
+    // P3 <- VanaMonths(P1)
+    // P4 <- etc...
+    // P5 <- Moon phase?
+    printf("EXTRACTVANATIME %s, %s, %s, %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5),
@@ -2556,13 +2579,30 @@ static void OpcodeAF(struct vm_t* vm) {
 }
 
 static void OpcodeB0(struct vm_t* vm) {
-    printf("OpcodeB0 %02x, %s, %s, %s\n",
-        getImm8(vm, 1),
-        getVar32Name(vm, 2),
-        getVar32Name(vm, 6),
-        getVar16Name(vm, 10));
+    uint8_t param = getImm8(vm, 1);
 
-    vm->pc += 12;
+    if (param == 0) {
+        const char* message = getVar16Message(vm, 10);
+
+        if (message != NULL) {
+            printf("NPCSAY3 %s, %s, %s // %s\n",
+                getVar32Name(vm, 2),
+                getVar32Name(vm, 6),
+                getVar16Name(vm, 10),
+                message);
+            FreePrintableText(message);
+        } else {
+            printf("NPCSAY3 %s, %s, %s\n",
+                getVar32Name(vm, 2),
+                getVar32Name(vm, 6),
+                getVar16Name(vm, 10));
+        }
+
+        vm->pc += 12;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB1(struct vm_t* vm) {
@@ -3234,16 +3274,14 @@ static void OpcodeD4(struct vm_t* vm) {
         const char* message = getVar16Message(vm, 2);
 
         if (message != NULL) {
-            printf("OpcodeD4 %02x, %s, %s, %s // %s\n",
-                param,
+            printf("PROMPT2 %s, %s, %s // %s\n",
                 getVar16Name(vm, 2),
                 getVar16Name(vm, 4),
                 getVar16Name(vm, 6),
                 message);
             FreePrintableText(message);
         } else {
-            printf("OpcodeD4 %02x, %s, %s, %s\n",
-                param,
+            printf("PROMPT2 %s, %s, %s\n",
                 getVar16Name(vm, 2),
                 getVar16Name(vm, 4),
                 getVar16Name(vm, 6));
@@ -3260,16 +3298,14 @@ static void OpcodeD4(struct vm_t* vm) {
         const char* message = getVar16Message(vm, 2);
 
         if (message != NULL) {
-            printf("OpcodeD4 %02x, %s, %s, %s // %s\n",
-                param,
+            printf("PROMPT3 %s, %s, %s // %s\n",
                 getVar16Name(vm, 2),
                 getVar16Name(vm, 4),
                 getVar16Name(vm, 6),
                 message);
             FreePrintableText(message);
         } else {
-            printf("OpcodeD4 %02x, %s, %s, %s\n",
-                param,
+            printf("PROMPT3 %s, %s, %s\n",
                 getVar16Name(vm, 2),
                 getVar16Name(vm, 4),
                 getVar16Name(vm, 6));
