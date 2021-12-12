@@ -13,8 +13,11 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
     // Don't know if this is the correct way to count the number of strings.
     uint32_t numEntries = 0;
     uint32_t prev = 0;
+
+    uint32_t mask = (lsb8(buf, 3) == 0x10) ? 0x80808080 : 0;
+
     for (uint32_t i = 4; i < (length & ~3); i += 4) {
-        uint32_t offset = lsb32(buf, i) ^ 0x80808080;
+        uint32_t offset = lsb32(buf, i) ^ mask;
         if (offset >= length || offset < prev) {
             break;
         }
@@ -38,11 +41,11 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
     (*dialog)->numEntries = numEntries;
 
     for (uint32_t i = 0; i < numEntries; i++) {
-        uint32_t offset = 4 + (lsb32(buf, 4, i * 4) ^ 0x80808080);
+        uint32_t offset = 4 + (lsb32(buf, 4, i * 4) ^ mask);
 
         uint32_t nextOffset = (i + 1) == numEntries
             ? length
-            : 4 + (lsb32(buf, 8, i * 4) ^ 0x80808080);
+            : 4 + (lsb32(buf, 8, i * 4) ^ mask);
 
         uint32_t entryLen = nextOffset - offset;
 
@@ -56,7 +59,7 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
 
         memcpy(entry->text, ptr, entryLen);
         for (uint32_t j = 0; j < entryLen; j++) {
-            entry->text[j] ^= 0x80;
+            entry->text[j] ^= mask;
         }
     }
 
