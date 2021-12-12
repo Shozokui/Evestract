@@ -2109,15 +2109,21 @@ static void Opcode9D(struct vm_t* vm) {
             getImm16(vm, 2),
             getVar16Name(vm, 4));
 
-        TrackData(vm, getImm16(vm, 2));
+        TrackJmp(vm, getImm16(vm, 2));
 
         vm->pc += 17;
     } else if (param == 8) {
-        // Unsure
-        printf("Opcode9D %02x ???\n",
-            param);
+        const char* text = GetPrintableText(&vm->code[vm->pc + 5], 16);
 
-        vm->pc += 6;
+        printf("STRCMP %s, %02x, %s, L%04X\n",
+            getVar16Name(vm, 2),
+            getImm8(vm, 4),
+            text,
+            getImm16(vm, 21));
+
+        TrackJmp(vm, getImm16(vm, 21));
+
+        vm->pc += 23;
     } else if (param == 10) {
         // Bounded array access
         printf("READBOUNDEDARRAY %s, L%04X[%s, %s]\n",
@@ -2129,6 +2135,14 @@ static void Opcode9D(struct vm_t* vm) {
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
+    } else if (param == 12) {
+        printf("Opcode9D %02x, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+
+        vm->pc += 8;
     } else if (param == 13) {
         printf("Opcode9D %02x, %s, %s, %s, %s\n",
             param,
@@ -2767,7 +2781,7 @@ static void OpcodeB4(struct vm_t* vm) {
     } else if (param == 19) {
         const char* text = GetPrintableText(&vm->code[vm->pc + 4], 16);
 
-        printf("OpcodeB4 %02x, %s, %sn",
+        printf("OpcodeB4 %02x, %s, %s\n",
             param,
             getVar16Name(vm, 2),
             text);
