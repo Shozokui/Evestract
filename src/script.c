@@ -3728,6 +3728,16 @@ static void OpcodeD8(struct vm_t* vm) {
     }
 }
 
+static void OpcodeD9(struct vm_t* vm) {
+    // A newer opcode;
+    // Unknown what it does.
+    uint8_t param = getImm8(vm, 1);
+
+    printf("OpcodeD9 %02x\n", param);
+
+    vm->pc += 2;
+}
+
 static const OpcodeFunc OpcodeTable[256] = {
     [0x00] = Opcode00,
     [0x01] = Opcode01,
@@ -3946,7 +3956,7 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xd6] = OpcodeD6,
     [0xd7] = OpcodeD7,
     [0xd8] = OpcodeD8,
-    [0xd9] = OpcodeUNSUP,
+    [0xd9] = OpcodeD9,
     [0xda] = OpcodeUNSUP,
     [0xdb] = OpcodeUNSUP,
     [0xdc] = OpcodeUNSUP,

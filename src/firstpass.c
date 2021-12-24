@@ -664,7 +664,8 @@ static const Opcode OpcodeTable[] = {
     OPCODE        (0xD801,  8                         ),
     OPCODE        (0xD802,  8                         ),
     OPCODE        (0xD803,  8                         ),
-    OPCODE        (0xD804, 12                         )
+    OPCODE        (0xD804, 12                         ),
+    OPCODE        (0xD9  ,  2                         )
 };
 
 static const Opcode* FindOpcode(uint16_t op) {
