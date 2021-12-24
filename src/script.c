@@ -2317,14 +2317,13 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 8;
     } else if (param == 7) {
         // CALL by jump table
-        printf("Opcode9D %02x, L%04X, %s\n",
-            param,
+        printf("CALL L%04X[%s]\n",
             getImm16(vm, 2),
             getVar16Name(vm, 4));
 
-        TrackJmp(vm, getImm16(vm, 2));
+        TrackData(vm, getImm16(vm, 2));
 
-        vm->pc += 17;
+        vm->pc += 6;
     } else if (param == 8) {
         const char* text = GetPrintableText(&vm->code[vm->pc + 5], 16);
 
@@ -2337,6 +2336,7 @@ static void Opcode9D(struct vm_t* vm) {
         TrackJmp(vm, getImm16(vm, 21));
 
         vm->pc += 23;
+    // todo - param 9 unused?
     } else if (param == 10) {
         // Bounded array access
         printf("READBOUNDEDARRAY %s, L%04X[%s, %s]\n",
@@ -2348,6 +2348,7 @@ static void Opcode9D(struct vm_t* vm) {
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
+    // todo - param 11 unused?
     } else if (param == 12) {
         printf("Opcode9D %02x, %s, %s, %s\n",
             param,
@@ -2365,6 +2366,7 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 8));
 
         vm->pc += 10;
+    // todo - param 14 unused?
     } else if (param == 15) {
         // Bounded array write
         printf("WRITEBOUNDEDARRAY L%04X[%s, %s], %s\n",
@@ -2376,6 +2378,7 @@ static void Opcode9D(struct vm_t* vm) {
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
+    // todo - param 16 unused?
     } else {
         // Todo
         printf("# Opcode9D %02x ", param);
