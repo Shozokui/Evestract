@@ -1164,7 +1164,7 @@ static void Opcode4C(struct vm_t* vm) {
 }
 
 static void Opcode4D(struct vm_t* vm) {
-    printf("Opcode4D\n");
+    printf("CLOSEDOOR\n");
 
     vm->pc += 1;
 }
@@ -1372,12 +1372,8 @@ static void Opcode5C(struct vm_t* vm) {
 
         vm->pc += 6;
     } else {
-        // Unsupported?
-        printf("Opcode5C %02x\n",
-            param);
-
-        // Undefined
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -1568,7 +1564,7 @@ static void Opcode6A(struct vm_t* vm) {
         getVar16Name(vm, 3),
         getVar16Name(vm, 5));
 
-    vm->pc += 5;
+    vm->pc += 7;
 }
 
 static void Opcode6B(struct vm_t* vm) {
@@ -1737,9 +1733,16 @@ static void Opcode71(struct vm_t* vm) {
 
 static void Opcode72(struct vm_t* vm) {
 
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint8_t param = getImm8(vm, 1);
 
-    if (param != 0) {
+    if (param == 0) {
+        // Load the appropriate Weather resource
+        // for the given zone.
+        printf("LOADWEATHER %s\n",
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 1) {
         // Read the current weather forecast
         // for the given zone and store in
         // Param0-Param2.
@@ -1749,12 +1752,8 @@ static void Opcode72(struct vm_t* vm) {
 
         vm->pc += 6;
     } else {
-        // Load the appropriate Weather resource
-        // for the given zone.
-        printf("LOADWEATHER %s\n",
-            getVar16Name(vm, 2));
-
-        vm->pc += 4;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -1849,9 +1848,6 @@ static void Opcode79(struct vm_t* vm) {
 
         vm->pc += 10;
     } else {
-        // ???
-        printf("Opcode79 %02x\n",
-            param);
         vm->running = 0;
         vm->unsup = 1;
     }
@@ -1960,10 +1956,8 @@ static void Opcode7E(struct vm_t* vm) {
             getVar16Name(vm, 6));
         vm->pc += 8;
     } else  {
-        printf("Opcode7E %02x, %s\n",
-            param,
-            getVar32Name(vm, 2));
-        vm->pc += 6;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2251,8 +2245,7 @@ static void Opcode9C(struct vm_t* vm) {
 }
 
 static void Opcode9D(struct vm_t* vm) {
-    // REVISIT -- param 2 is SOMETIMES immediate
-    uint8_t param = lsb8(vm->code, vm->pc, 1);
+    uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
         // Array access
@@ -2265,18 +2258,21 @@ static void Opcode9D(struct vm_t* vm) {
 
         vm->pc += 8;
     } else if (param == 1) {
-        printf("Opcode9D %02x, %s, %s, %s\n",
-            param,
-            getVar16Name(vm, 2),
+        printf("COPYVECTOR %s, L%04X[%s]\n",
             getVar16Name(vm, 4),
+            getImm16(vm, 2),
             getVar16Name(vm, 6));
+
+        TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 2) {
-        printf("Opcode9D %02x, %s, %s\n",
+        printf("Opcode9D %02x, L%04X, %s\n",
             param,
-            getVar16Name(vm, 2),
+            getImm16(vm, 2),
             getVar16Name(vm, 4));
+
+        TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 6;
     } else if (param == 3) {
@@ -2336,7 +2332,16 @@ static void Opcode9D(struct vm_t* vm) {
         TrackJmp(vm, getImm16(vm, 21));
 
         vm->pc += 23;
-    // todo - param 9 unused?
+    } else if (param == 9) {
+        printf("STRCMP %s, %02x, %s, L%04X\n",
+            getVar16Name(vm, 2),
+            getImm8(vm, 6),
+            getVar16Name(vm, 4),
+            getImm16(vm, 7));
+
+        TrackJmp(vm, getImm16(vm, 7));
+
+        vm->pc += 9;
     } else if (param == 10) {
         // Bounded array access
         printf("READBOUNDEDARRAY %s, L%04X[%s, %s]\n",
@@ -2348,13 +2353,24 @@ static void Opcode9D(struct vm_t* vm) {
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
-    // todo - param 11 unused?
+    } else if (param == 11) {
+        printf("COPYVECTORBOUNDED %s, L%04X[%s], %s\n",
+            getVar16Name(vm, 4),
+            getImm16(vm, 2),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        TrackData(vm, getImm16(vm, 2));
+
+        vm->pc += 10;
     } else if (param == 12) {
-        printf("Opcode9D %02x, %s, %s, %s\n",
+        printf("Opcode9D %02x, L%04X, %s, %s\n",
             param,
-            getVar16Name(vm, 2),
+            getImm16(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
+
+        TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 13) {
@@ -2366,7 +2382,15 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 8));
 
         vm->pc += 10;
-    // todo - param 14 unused?
+    } else if (param == 14) {
+        printf("Opcode9D %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
     } else if (param == 15) {
         // Bounded array write
         printf("WRITEBOUNDEDARRAY L%04X[%s, %s], %s\n",
@@ -2378,11 +2402,20 @@ static void Opcode9D(struct vm_t* vm) {
         TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
-    // todo - param 16 unused?
+    } else if (param == 16) {
+        printf("Opcode9D %02x, L%04X, %s, %s, %s\n",
+            param,
+            getImm16(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        TrackData(vm, getImm16(vm, 2));
+
+        vm->pc += 10;
     } else {
-        // Todo
-        printf("# Opcode9D %02x ", param);
         vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2486,17 +2519,20 @@ static void OpcodeA6(struct vm_t* vm) {
 static void OpcodeA7(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
-    if (param != 0) {
+    if (param == 0) {
+        printf("OpcodeA7 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 1) {
         printf("OpcodeA7 %02x, %s\n",
             param,
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else {
-        printf("OpcodeA7 %02x\n",
-            param);
-
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2681,11 +2717,8 @@ static void OpcodeAB(struct vm_t* vm) {
 
         vm->pc += 6;
     } else {
-        // Undefined
-        printf("OpcodeAB %02x\n",
-            param);
-
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2718,11 +2751,8 @@ static void OpcodeAC(struct vm_t* vm) {
 
         vm->pc += 8;
     } else {
-        // Undefined
-        printf("OpcodeAC %02x\n",
-            param);
-
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2730,7 +2760,7 @@ static void OpcodeAD(struct vm_t* vm) {
     uint8_t param = getImm8(vm, 1);
 
     printf("OpcodeAD %02x, %s, %s, %s\n",
-        getImm8(vm, 1),
+        param,
         getVar16Name(vm, 2),
         getVar32Name(vm, 4),
         getVar32Name(vm, 8));
@@ -2938,7 +2968,6 @@ static void OpcodeB3(struct vm_t* vm) {
 
         vm->pc += 4;
     } else {
-        // Is skipped.
         vm->running = 0;
         vm->unsup = 1;
     }
@@ -3409,10 +3438,8 @@ static void OpcodeC2(struct vm_t* vm) {
 
         vm->pc += 6;
     } else {
-        printf("OpcodeC2 %02x\n",
-            param);
-
-        vm->pc += 2;
+        vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
