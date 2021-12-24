@@ -2825,6 +2825,21 @@ static void OpcodeB1(struct vm_t* vm) {
             getVar16Name(vm, 2));
 
         vm->pc += 4;
+    } else if (param == 3) {
+        // Guessing
+        printf("OpcodeB1 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 4) {
+        // Guessing
+        printf("OpcodeB1 %02x, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4));
+
+        vm->pc += 6;
     } else {
         vm->running = 0;
         vm->unsup = 1;
