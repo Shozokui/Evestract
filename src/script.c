@@ -133,6 +133,60 @@ static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, ui
         return "EventResult";
     } else if (addr >= 0x1002 && addr <= 0x1009) {
         sprintf(buf, "Param%d", addr - 0x1002);
+    } else if (addr == 0x7f00) {
+        // LocalWorkZone - int(Position * 1000.0)
+        sprintf(buf, "Position.x");
+    } else if (addr == 0x7f01) {
+        // LocalWorkZone - int(Position * 1000.0)
+        sprintf(buf, "Position.y");
+    } else if (addr == 0x7f02) {
+        // LocalWorkZone - int(Position * 1000.0)
+        sprintf(buf, "Position.z");
+    } else if (addr == 0x7f03) {
+        // LocalWorkZone  - int(Rotation.y * 4096.0)
+        sprintf(buf, "Rotation.y");
+    } else if (addr == 0x7f06) {
+        // Read only - returns 0 if the script isn't set to run on the player
+        sprintf(buf, "PlayerMainJobOr0");
+    } else if (addr == 0x7f07) {
+        // Read only
+        sprintf(buf, "EntityRace");
+    } else if (addr == 0x7f08) {
+        // Read only - returns 1 if the script isn't set to run on the player
+        sprintf(buf, "PlayerMainJobLevelOr1");
+    } else if (addr == 0x7f0a) {
+        // Read only
+        sprintf(buf, "EntityId");
+    } else if (addr == 0x7f0b) {
+        // Read only - bit 0x19 of Flags1
+        sprintf(buf, "EntityFlag1_0x19");
+    } else if (addr == 0x7f80) {
+        // Read only - int(Position * 1000.0)
+        sprintf(buf, "PlayerIntPosition.x");
+    } else if (addr == 0x7f81) {
+        // Read only - int(Position * 1000.0)
+        sprintf(buf, "PlayerIntPosition.y");
+    } else if (addr == 0x7f82) {
+        // Read only - int(Position * 1000.0)
+        sprintf(buf, "PlayerIntPosition.z");
+    } else if (addr == 0x7f83) {
+        // Read only - int(Position.w * 4096.0)
+        sprintf(buf, "PlayerIntPosition.w");
+    } else if (addr == 0x7f86) {
+        // Read only
+        sprintf(buf, "PlayerMainJob");
+    } else if (addr == 0x7f87) {
+        // Read only
+        sprintf(buf, "PlayerRace");
+    } else if (addr == 0x7f88) {
+        // Read only
+        sprintf(buf, "PlayerMainJobLevel");
+    } else if (addr == 0x7f8a) {
+        // Read only
+        sprintf(buf, "PlayerEntityId");
+    } else if (addr == 0x7f8b) {
+        // Read only - bit 0x19 of Flags1
+        sprintf(buf, "PlayerEntityFlag1_0x19");
     } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
         if (IsFloat) {
@@ -202,6 +256,36 @@ static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
         sprintf(buf, "#%u[\"%s\"]", addr, npcName);
     } else if (addr >= 0x7fffff00 && addr < 0x80000000) {
         switch (addr) {
+            // party members by member id (1-5)
+            // 0x7fffffc1
+            // 0x7fffffc2
+            // 0x7fffffc3
+            // 0x7fffffc4
+            // 0x7fffffc5
+
+            // alliance members by member id (0x10-0x15)
+            // 0x7fffffc6
+            // 0x7fffffc7
+            // 0x7fffffc8
+            // 0x7fffffc9
+            // 0x7fffffca
+            // 0x7fffffcb
+
+            // alliance members by member id (0x20-0x25)
+            // 0x7fffffcc
+            // 0x7fffffcd
+            // 0x7fffffce
+            // 0x7fffffcf
+            // 0x7fffffd0
+            // 0x7fffffd1
+
+            // party members by index
+            // 0x7ffffff1
+            // 0x7ffffff2
+            // 0x7ffffff3
+            // 0x7ffffff4
+            // 0x7ffffff5
+
             case 0x7fffffc0:
             case 0x7ffffff0:
             case 0x7ffffff9:
@@ -406,13 +490,13 @@ static void Opcode0A(struct vm_t* vm) {
 }
 
 static void Opcode0B(struct vm_t* vm) {
-    printf("ADD %s, #1\n",
+    printf("INC %s\n",
         getVar16Name(vm, 1));
     vm->pc += 3;
 }
 
 static void Opcode0C(struct vm_t* vm) {
-    printf("SUB %s, #1\n",
+    printf("DEC %s\n",
         getVar16Name(vm, 1));
     vm->pc += 3;
 }
@@ -626,7 +710,9 @@ static void Opcode25(struct vm_t* vm) {
 }
 
 static void Opcode26(struct vm_t* vm) {
-    // todo - Some other stuffs.
+    // Opcode that just halts;
+    // Most likely trying to disassemble data.
+    printf("INVALID\n");
     vm->running = 0;
 }
 
@@ -1033,7 +1119,7 @@ static void Opcode4B(struct vm_t* vm) {
 }
 
 static void Opcode4C(struct vm_t* vm) {
-    printf("Opcode4C\n");
+    printf("OPENDOOR\n");
 
     vm->pc += 1;
 }
@@ -1329,12 +1415,36 @@ static void Opcode5F(struct vm_t* vm) {
         vm->running = 0;
         vm->unsup = 1;
     }
-};
+}
 
 static void Opcode60(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0 || param == 1) {
+        printf("Opcode60 %02x // %02x%02x\n",
+            param,
+            getImm8(vm, 2),
+            getImm8(vm, 3)
+            );
+
+        // The last two bytes are ignored
+        vm->pc += 4;
+    } else if (param == 2) {
+        printf("Opcode60 %02x, %s\n",
+            param,
+            getVar32FourCC(vm, 2));
+        vm->pc += 6;
+    } else {
+        // Halting here although these are just skipped.
+        // printf("Opcode60 %02x\n",
+        //    param
+        //    );
+        // vm->pc += 2;
+
+        vm->running = 0;
+        vm->unsup = 1;
+    }
+}
 
 static void Opcode61(struct vm_t* vm) {
     printf("Opcode61 %02x\n",
@@ -1506,11 +1616,20 @@ static void Opcode71(struct vm_t* vm) {
             getVar16Name(vm, 4));
         vm->pc += 6;
     } else if (param == 32) {
-        // Todo
-        vm->running = 0;
+        printf("Opcode71 %02x, %s, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14));
+        vm->pc += 16;
     } else if (param == 33) {
-        // Todo
-        vm->running = 0;
+        printf("Opcode71 %02x\n",
+            param);
+        vm->pc += 2;
     } else if (param == 48) {
         printf("Opcode71 %02x, %s\n",
             param,
@@ -1572,8 +1691,8 @@ static void Opcode71(struct vm_t* vm) {
             getVar16Name(vm, 2));
         vm->pc += 4;
     } else {
-        // todo - Some other stuffs.
         vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -1610,9 +1729,11 @@ static void Opcode73(struct vm_t* vm) {
 }
 
 static void Opcode74(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    printf("Opcode74 %02x\n",
+        getImm8(vm, 1));
+
+    vm->pc += 2;
+}
 
 static void Opcode75(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
@@ -1663,7 +1784,7 @@ static void Opcode78(struct vm_t* vm) {
 }
 
 static void Opcode79(struct vm_t* vm) {
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint32_t param = getImm8(vm, 1);
 
     if (param == 0) {
         printf("Opcode79 %02x, %s, %s\n",
@@ -1723,20 +1844,16 @@ static void Opcode7A(struct vm_t* vm) {
 
         vm->pc += 2;
     } else if (param == 4) {
-        uint32_t addr = getImm32(vm, 2);
-
-        printf("Opcode7A %02x, %02x, %s, %02x\n",
-            param,
-            lsb8(vm->code, vm->pc, 2),
+        // Name is likely inaccurate...tbd.
+        printf("SETPRIORITY %s, #%d, #%2d\n",
             getVar32Name(vm, 3),
+            lsb8(vm->code, vm->pc, 2),
             lsb8(vm->code, vm->pc, 7));
 
         vm->pc += 8;
     } else if (param == 5) {
-        uint32_t addr = getImm32(vm, 2);
-
-        printf("Opcode7A %02x,  %s\n",
-            param,
+        // Name is likely inaccurate...tbd.
+        printf("RESETPRIORITY %s\n",
             getVar32Name(vm, 2));
 
         vm->pc += 6;
@@ -1925,8 +2042,65 @@ static void Opcode8B(struct vm_t* vm) {
 }
 
 static void Opcode8C(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("SYNTHSUGGESTION %02x, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 1) {
+        printf("SYNTHSUGGESTION WAIT\n");
+
+        vm->pc += 2;
+    } else if (param == 2) {
+        printf("SYNTHSUGGESTION %02x, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10));
+
+        vm->pc += 12;
+    } else if (param == 3) {
+        printf("SYNTHSUGGESTION %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 4) {
+        // Campaign Ops
+        printf("SYNTHSUGGESTION %02x, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 5) {
+        // Campaign Ops
+        printf("SYNTHSUGGESTION %02x, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12));
+
+        vm->pc += 14;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void Opcode8D(struct vm_t* vm) {
@@ -2263,6 +2437,7 @@ static void OpcodeA6(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -2648,8 +2823,83 @@ static void OpcodeB2(struct vm_t* vm) {
 }
 
 static void OpcodeB3(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 1) {
+        printf("OpcodeB3 %02x, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12));
+
+        vm->pc += 14;
+    } else if (param == 2) {
+        printf("OpcodeB3 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 3) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 4) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 5) {
+        printf("OpcodeB3 %02x, %s, %s, %s, %s, %s, %s, %s, %s\n",
+            param,
+            getVar16Name(vm, 2),
+            getVar16Name(vm, 4),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8),
+            getVar16Name(vm, 10),
+            getVar16Name(vm, 12),
+            getVar16Name(vm, 14),
+            getVar16Name(vm, 16));
+
+        vm->pc += 18;
+    } else if (param == 6) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 7) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 8) {
+        printf("OpcodeB3 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 9) {
+        printf("OpcodeB3 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        // Is skipped.
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB4(struct vm_t* vm) {
@@ -2922,8 +3172,49 @@ static void OpcodeB6(struct vm_t* vm) {
 }
 
 static void OpcodeB7(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        // Cross-NPC MOV
+        // MOV NPC[addr], val
+        printf("MOV %s[%s], %s\n",
+            getVar32Name(vm, 2),
+            getVar16Name(vm, 6),
+            getVar16Name(vm, 8));
+
+        vm->pc += 10;
+    } else if (param == 1) {
+        printf("COPYNAME %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4));
+
+        vm->pc += 8;
+    } else if (param == 2) {
+        // MOV addr, EntityId
+        printf("MOVENTITYID %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4));
+
+        vm->pc += 8;
+    } else if (param == 3) {
+        // MOV addr, EntityIndex
+        printf("MOVENTITYINDEX %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4));
+
+        vm->pc += 8;
+    } else if (param == 4) {
+        // setact_userindex_to_mesactornameindex
+        // ???
+        printf("OpcodeB7 04, %s, %s\n",
+            getVar16Name(vm, 2),
+            getVar32Name(vm, 4));
+
+        vm->pc += 8;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB8(struct vm_t* vm) {
@@ -3053,8 +3344,10 @@ static void OpcodeC0(struct vm_t* vm) {
 }
 
 static void OpcodeC1(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
+    printf("OpcodeC1 %s\n",
+        getVar32Name(vm, 1));
+
+    vm->pc += 5;
 }
 
 static void OpcodeC2(struct vm_t* vm) {
@@ -3149,16 +3442,6 @@ static void OpcodeC9(struct vm_t* vm) {
     vm->pc += 1;
 }
 
-static void OpcodeCA(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
-
-static void OpcodeCB(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
-
 static void OpcodeCC(struct vm_t* vm) {
 
     uint8_t param = getImm8(vm, 1);
@@ -3203,11 +3486,8 @@ static void OpcodeCC(struct vm_t* vm) {
 
         vm->pc += 4;
     } else {
-        // Undefined
-        printf("OpcodeCC %02x\n",
-            param);
-
         vm->running = 0;
+        vm->unsup = 1;
     }
 }
 
@@ -3378,9 +3658,49 @@ static void OpcodeD7(struct vm_t* vm) {
 }
 
 static void OpcodeD8(struct vm_t* vm) {
-    // todo - Some other stuffs.
-    vm->running = 0;
-};
+    uint8_t param = getImm8(vm, 1);
+
+    if (param == 0) {
+        // Copies rotation to LocalWorkZone
+        printf("COPYROTATION %s\n",
+            getVar32Name(vm, 2));
+
+        vm->pc += 6;
+    } else if (param == 1) {
+        // Sets LocalWorkZone.Rotation.X
+        printf("SETROTATIONX %s, %s\n",
+            getVar32Name(vm, 2),
+            getVar16NameRadians(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 2) {
+        // Sets LocalWorkZone.Rotation.Y
+        printf("SETROTATIONY %s, %s\n",
+            getVar32Name(vm, 2),
+            getVar16NameRadians(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 3) {
+        // Sets LocalWorkZone.Rotation.Z
+        printf("SETROTATIONZ %s, %s\n",
+            getVar32Name(vm, 2),
+            getVar16NameRadians(vm, 6));
+
+        vm->pc += 8;
+    } else if (param == 4) {
+        // Sets LocalWorkZone.Rotation.XYZ
+        printf("SETROTATIONXYZ %s, %s, %s, %s\n",
+            getVar32Name(vm, 2),
+            getVar16NameRadians(vm, 6),
+            getVar16NameRadians(vm, 8),
+            getVar16NameRadians(vm, 10));
+
+        vm->pc += 12;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
+}
 
 static const OpcodeFunc OpcodeTable[256] = {
     [0x00] = Opcode00,
@@ -3585,8 +3905,8 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xc7] = OpcodeC7,
     [0xc8] = OpcodeC8,
     [0xc9] = OpcodeC9,
-    [0xca] = OpcodeCA,
-    [0xcb] = OpcodeCB,
+    [0xca] = OpcodeUNSUP,
+    [0xcb] = OpcodeUNSUP,
     [0xcc] = OpcodeCC,
     [0xcd] = OpcodeCD,
     [0xce] = OpcodeCE,
@@ -3763,7 +4083,7 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
 
             if (addrJmp < 0xffffffff) {
                 printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
-                printf("# Skipping ahead to at L%04X...\n", addrJmp);
+                printf("# Skipping ahead to L%04X...\n", addrJmp);
 
                 vm.running = 1;
                 vm.unsup = 0;
