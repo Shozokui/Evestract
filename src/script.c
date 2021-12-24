@@ -7,88 +7,11 @@
 #include "bytes.h"
 #include "dialog.h"
 #include "event.h"
+#include "firstpass.h"
 #include "npc.h"
 #include "script.h"
+#include "scriptint.h"
 #include "text.h"
-
-struct reference_t {
-    uint32_t location;
-    uint32_t destination;
-    uint32_t end;
-    uint32_t active;
-};
-
-struct vm_t {
-    const uint8_t* code;
-
-    const uint32_t* constants;
-
-    uint32_t pc;
-    uint32_t running;
-    uint32_t length;
-    uint32_t numConstants;
-
-    const struct event_zone_t* eventZone;
-    const struct dialog_t* dialog;
-    const struct npc_t* npc;
-
-    // Disassembly state tracking.
-    uint32_t unsup;
-
-    struct reference_t* addrEnd; // End, Ret
-    uint32_t addrEndLen;
-
-    struct reference_t* addrJmp; // Jmp, Call, Cmp, etc.
-    uint32_t addrJmpLen;
-
-    struct reference_t* addrData; // Etc...
-    uint32_t addrDataLen;
-};
-
-static void TrackEnd(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrEndLen; i++) {
-        if (vm->pc == vm->addrEnd[i].location && vm->addrEnd[i].destination == addr) {
-            return;
-        }
-    }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrEnd[vm->addrEndLen++] = ref;
-}
-
-static void TrackJmp(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrJmpLen; i++) {
-        if (vm->pc == vm->addrJmp[i].location && vm->addrJmp[i].destination == addr) {
-            return;
-        }
-    }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrJmp[vm->addrJmpLen++] = ref;
-}
-
-static void TrackData(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrDataLen; i++) {
-        if (vm->pc == vm->addrData[i].location && vm->addrData[i].destination == addr) {
-            return;
-        }
-    }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrData[vm->addrDataLen++] = ref;
-}
 
 typedef void (*OpcodeFunc)(struct vm_t*);
 
@@ -407,22 +330,24 @@ static void OpcodeUNSUP(struct vm_t* vm) {
 static void Opcode00(struct vm_t* vm) {
     printf("END\n");
 
-    TrackEnd(vm, vm->pc + 1);
+    // TrackEnd(vm, vm->pc + 1);
 
     vm->pc += 1;
 }
 
 static void Opcode01(struct vm_t* vm) {
-    printf("JMP L%04X\n",
+    printf("JMP .L%04X\n",
         getImm16(vm, 1));
 
-    TrackJmp(vm, getImm16(vm, 1));
+    // TrackJmp(vm, getImm16(vm, 1));
 
     vm->pc += 3;
 }
 
 static void Opcode02(struct vm_t* vm) {
     // CMP A, B, Op, Dest
+
+    uint8_t param = getImm8(vm, 5);
 
     const char* Op = "<#>";
 
@@ -464,13 +389,13 @@ static void Opcode02(struct vm_t* vm) {
             return;
     }
 
-    printf("CMP %s %s %s, L%04X\n",
+    printf("CMP %s %s %s, .L%04X\n",
         getVar16Name(vm, 1),
         Op,
         getVar16Name(vm, 3),
         getImm16(vm, 6));
 
-    TrackJmp(vm, getImm16(vm, 6));
+    // TrackJmp(vm, getImm16(vm, 6));
 
     vm->pc += 8;
 }
@@ -636,10 +561,10 @@ static void Opcode19(struct vm_t* vm) {
 }
 
 static void Opcode1A(struct vm_t* vm) {
-    printf("CALL L%04X\n",
+    printf("CALL .L%04X\n",
         getImm16(vm, 1));
 
-    TrackJmp(vm, getImm16(vm, 1));
+    // TrackJmp(vm, getImm16(vm, 1));
 
     vm->pc += 3;
 }
@@ -647,7 +572,7 @@ static void Opcode1A(struct vm_t* vm) {
 static void Opcode1B(struct vm_t* vm) {
     printf("RET\n");
 
-    TrackEnd(vm, vm->pc + 1);
+    // TrackEnd(vm, vm->pc + 1);
     vm->pc += 1;
 }
 
@@ -707,7 +632,7 @@ static void Opcode20(struct vm_t* vm) {
 }
 
 static void Opcode21(struct vm_t* vm) {
-    printf("Opcode21\n");
+    printf("STOP\n");
     vm->pc += 1;
 }
 
@@ -749,10 +674,8 @@ static void Opcode25(struct vm_t* vm) {
 }
 
 static void Opcode26(struct vm_t* vm) {
-    // Opcode that just halts;
-    // Most likely trying to disassemble data.
-    printf("INVALID\n");
-    vm->running = 0;
+    printf("HALT\n");
+    vm->pc += 1;
 }
 
 static void Opcode27(struct vm_t* vm) {
@@ -986,12 +909,12 @@ static void Opcode3D(struct vm_t* vm) {
 
 static void Opcode3E(struct vm_t* vm) {
     // Jump to P3 if [P1+(P2>>5)] & (1<<(P2&31)) is true
-    printf("BITARRAYTST %s, %s, L%04X\n",
+    printf("BITARRAYTST %s, %s, .L%04X\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getImm16(vm, 5));
 
-    TrackJmp(vm, getImm16(vm, 5));
+    // TrackJmp(vm, getImm16(vm, 5));
 
     vm->pc += 7;
 }
@@ -1056,11 +979,11 @@ static void Opcode43(struct vm_t* vm) {
 
 static void Opcode44(struct vm_t* vm) {
     // Jump to P2 if P1 is a valid EntityId in the entity table
-    printf("ISENTITY %s, L%04X\n",
+    printf("ISENTITY %s, .L%04X\n",
         getVar16Name(vm, 1),
         getImm16(vm, 3));
 
-    TrackJmp(vm, getImm16(vm, 3));
+    // TrackJmp(vm, getImm16(vm, 3));
 
     vm->pc += 5;
 }
@@ -1077,12 +1000,28 @@ static void Opcode45(struct vm_t* vm) {
 }
 
 static void Opcode46(struct vm_t* vm) {
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint8_t param = lsb8(vm->code, vm->pc, 1);
 
-    printf("Opcode46 %02x\n",
-        param);
+    if (param == 0) {
+        printf("Opcode46 %02x\n",
+            param);
 
-    vm->pc += 2;
+        vm->pc += 2;
+    } else if (param == 1) {
+        printf("Opcode46 %02x\n",
+            param);
+
+        vm->pc += 2;
+    } else if (param == 2) {
+        printf("Opcode46 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void Opcode47(struct vm_t* vm) {
@@ -1703,11 +1642,10 @@ static void Opcode71(struct vm_t* vm) {
             param);
         vm->pc += 2;
     } else if (param == 82) {
-        printf("Opcode71 %02x, %s, %s\n",
+        printf("Opcode71 %02x, %s\n",
             param,
-            getVar16Name(vm, 2),
-            getVar16Name(vm, 4));
-        vm->pc += 6;
+            getVar16Name(vm, 2));
+        vm->pc += 4;
     } else if (param == 83) {
         printf("Opcode71 %02x\n",
             param);
@@ -1984,11 +1922,11 @@ static void Opcode81(struct vm_t* vm) {
 
 static void Opcode82(struct vm_t* vm) {
     // Jump if entity is in the specified RID
-    printf("INRID %s, L%04X\n",
+    printf("INRID %s, .L%04X\n",
         getVar32FourCC(vm, 1),
         getImm16(vm, 5));
 
-    TrackJmp(vm, getImm16(vm, 5));
+    // TrackJmp(vm, getImm16(vm, 5));
 
     vm->pc += 7;
 }
@@ -2249,30 +2187,30 @@ static void Opcode9D(struct vm_t* vm) {
 
     if (param == 0) {
         // Array access
-        printf("READARRAY %s, L%04X[%s]\n",
+        printf("READARRAY %s, .L%04X[%s]\n",
             getVar16Name(vm, 4),
             getImm16(vm, 2),
             getVar16Name(vm, 6));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 1) {
-        printf("COPYVECTOR %s, L%04X[%s]\n",
+        printf("COPYVECTOR %s, .L%04X[%s]\n",
             getVar16Name(vm, 4),
             getImm16(vm, 2),
             getVar16Name(vm, 6));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 2) {
-        printf("Opcode9D %02x, L%04X, %s\n",
+        printf("Opcode9D %02x, .L%04X, %s\n",
             param,
             getImm16(vm, 2),
             getVar16Name(vm, 4));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 6;
     } else if (param == 3) {
@@ -2293,84 +2231,84 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 8;
     } else if (param == 5) {
         // Array write
-        printf("WRITEARRAY L%04X[%s], %s\n",
+        printf("WRITEARRAY .L%04X[%s], %s\n",
             getImm16(vm, 2),
             getVar16Name(vm, 6),
             getVar16Name(vm, 4));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 6) {
-        printf("Opcode9D %02x, L%04X, %s, %s\n",
+        printf("Opcode9D %02x, .L%04X, %s, %s\n",
             param,
             getImm16(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 7) {
         // CALL by jump table
-        printf("CALL L%04X[%s]\n",
+        printf("CALL .L%04X[%s]\n",
             getImm16(vm, 2),
             getVar16Name(vm, 4));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 6;
     } else if (param == 8) {
         const char* text = GetPrintableText(&vm->code[vm->pc + 5], 16);
 
-        printf("STRCMP %s, %02x, %s, L%04X\n",
+        printf("STRCMP %s, %02x, %s, .L%04X\n",
             getVar16Name(vm, 2),
             getImm8(vm, 4),
             text,
             getImm16(vm, 21));
 
-        TrackJmp(vm, getImm16(vm, 21));
+        // TrackJmp(vm, getImm16(vm, 21));
 
         vm->pc += 23;
     } else if (param == 9) {
-        printf("STRCMP %s, %02x, %s, L%04X\n",
+        printf("STRCMP %s, %02x, %s, .L%04X\n",
             getVar16Name(vm, 2),
             getImm8(vm, 6),
             getVar16Name(vm, 4),
             getImm16(vm, 7));
 
-        TrackJmp(vm, getImm16(vm, 7));
+        // TrackJmp(vm, getImm16(vm, 7));
 
         vm->pc += 9;
     } else if (param == 10) {
         // Bounded array access
-        printf("READBOUNDEDARRAY %s, L%04X[%s, %s]\n",
+        printf("READBOUNDEDARRAY %s, .L%04X[%s, %s]\n",
             getVar16Name(vm, 4),
             getImm16(vm, 2),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
     } else if (param == 11) {
-        printf("COPYVECTORBOUNDED %s, L%04X[%s], %s\n",
+        printf("COPYVECTORBOUNDED %s, .L%04X[%s], %s\n",
             getVar16Name(vm, 4),
             getImm16(vm, 2),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
     } else if (param == 12) {
-        printf("Opcode9D %02x, L%04X, %s, %s\n",
+        printf("Opcode9D %02x, .L%04X, %s, %s\n",
             param,
             getImm16(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 13) {
@@ -2393,24 +2331,24 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 10;
     } else if (param == 15) {
         // Bounded array write
-        printf("WRITEBOUNDEDARRAY L%04X[%s, %s], %s\n",
+        printf("WRITEBOUNDEDARRAY .L%04X[%s, %s], %s\n",
             getImm16(vm, 2),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8),
             getVar16Name(vm, 4));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
     } else if (param == 16) {
-        printf("Opcode9D %02x, L%04X, %s, %s, %s\n",
+        printf("Opcode9D %02x, .L%04X, %s, %s, %s\n",
             param,
             getImm16(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        TrackData(vm, getImm16(vm, 2));
+        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
     } else {
@@ -2867,11 +2805,30 @@ static void OpcodeB0(struct vm_t* vm) {
 }
 
 static void OpcodeB1(struct vm_t* vm) {
-    printf("OpcodeB1 %02x, %s\n",
-        getImm8(vm, 1),
-        getVar16Name(vm, 2));
+    uint8_t param = getImm8(vm, 1);
 
-    vm->pc += 4;
+    if (param == 0) {
+        printf("OpcodeB1 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 1) {
+        printf("OpcodeB1 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else if (param == 2) {
+        printf("OpcodeB1 %02x, %s\n",
+            param,
+            getVar16Name(vm, 2));
+
+        vm->pc += 4;
+    } else {
+        vm->running = 0;
+        vm->unsup = 1;
+    }
 }
 
 static void OpcodeB2(struct vm_t* vm) {
@@ -4030,7 +3987,7 @@ static const OpcodeFunc OpcodeTable[256] = {
     [0xff] = OpcodeUNSUP,
 };
 
-int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const struct dialog_t* dialog, const struct npc_t* npc) {
+int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const struct dialog_t* dialog, const struct npc_t* npc, int verbose) {
 
     const struct event_npc_t* eventNpc = &eventZone->events[index];
 
@@ -4058,14 +4015,82 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
     vm.addrData = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
     vm.addrDataLen = 0;
 
-    TrackJmp(&vm, vm.length);
+    // TrackJmp(&vm, vm.length);
 
-    for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
-        const struct event_t* event = &eventNpc->events[i];
-        TrackJmp(&vm, event->pc);
-    }
+    // for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
+    //    const struct event_t* event = &eventNpc->events[i];
+    //    TrackJmp(&vm, event->pc);
+    // }
+
+    firstpass(&vm, eventNpc);
+    vm.pc = 0;
+    vm.running = 1;
+    vm.unsup = 0;
 
     while (vm.running != 0 && vm.pc < vm.length) {
+        int isJumpTarget = 0;
+        int isData = 0;
+        int isEnd = 0;
+
+        for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
+            if (vm.pc == vm.addrJmp[i].destination) {
+                isJumpTarget = 1;
+                break;
+            }
+        }
+
+        for (uint32_t i = 0; i < vm.addrDataLen; i++) {
+            if (vm.pc == vm.addrData[i].destination) {
+                isData = 1;
+                break;
+            }
+        }
+
+        for (uint32_t i = 0; i < vm.addrEndLen; i++) {
+            if (vm.pc == vm.addrEnd[i].destination) {
+                isEnd = 1;
+                break;
+            }
+        }
+
+        if (isEnd) {
+            printf("\n");
+        }
+
+        if (isJumpTarget) {
+            isData = 0;
+            isEnd = 0;
+        }
+
+        if (isEnd || isData) {
+            uint32_t addrJmp = 0xffffffff;
+
+            for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
+                if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
+                    addrJmp = vm.addrJmp[i].destination;
+                }
+            }
+
+            for (uint32_t i = 0; i < vm.addrDataLen; i++) {
+                if (vm.addrData[i].destination > vm.pc && vm.addrData[i].destination < addrJmp) {
+                    addrJmp = vm.addrData[i].destination;
+                }
+            }
+
+            if (addrJmp == 0xffffffff) {
+                addrJmp = vm.length;
+            }
+
+            printf(".L%04X: .db $", vm.pc);
+            while (vm.pc < addrJmp) {
+                printf("%02x", vm.code[vm.pc]);
+                vm.pc++;
+            }
+            printf("\n\n");
+
+            continue;
+        }
+
         for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
             const struct event_t* event = &eventNpc->events[i];
 
@@ -4074,74 +4099,22 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
             }
         }
 
-        printf("L%04X: ", vm.pc);
+        if (isJumpTarget) {
+            printf(".L%04X: ", vm.pc);
+        } else {
+            printf("        ");
+        }
+
         OpcodeTable[vm.code[vm.pc]](&vm);
 
-        if (vm.unsup != 0) {
-            uint32_t addrJmp = 0xffffffff;
-            uint32_t addrData = 0xffffffff;
-
-            for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-                // printf("d %u %u %u %u\n", i, vm.addrData[i].active, vm.addrData[i].destination, addrData);
-                if (!vm.addrData[i].active) {
-                    continue;
-                }
-                if (vm.addrData[i].destination < addrData) {
-                    addrData = vm.addrData[i].destination;
-                }
+        if (vm.running == 0 && vm.pc < vm.length) {
+            // B104 ??? - What's going on here?
+            printf("# ");
+            for (uint32_t i = vm.pc; i < vm.length && i < vm.pc + 64; i++) {
+                printf("%02X", vm.code[i]);
             }
-            if (addrData == 0xffffffff) {
-                addrData = vm.pc;
-            }
-            for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-                // printf("j %u %u %u %u\n", i, vm.addrJmp[i].active, vm.addrJmp[i].destination, addrJmp);
-                if (!vm.addrJmp[i].active) {
-                    continue;
-                }
-                if (vm.addrJmp[i].destination > addrData && vm.addrJmp[i].destination < addrJmp) {
-                    addrJmp = vm.addrJmp[i].destination;
-                }
-            }
+            printf("\n");
 
-            printf("# Candidates: \n");
-            if (addrJmp < 0xffffffff) {
-                printf("# addrJmp : L%04X\n", addrJmp);
-            }
-            if (addrData < 0xffffffff) {
-                printf("# addrData: L%04X\n", addrData);
-            }
-            if (addrData < addrJmp && addrJmp < 0xffffffff) {
-                printf("# Re-dumping L%04X to L%04X as data...\n", addrData, addrJmp);
-
-                printf("L%04X: .db $", addrData);
-                while (addrData < addrJmp) {
-                    printf("%02x", vm.code[addrData]);
-                    addrData++;
-                }
-                printf("\n");
-
-                // Remove old candidates
-                for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-                    if (vm.addrData[i].destination <= addrJmp) {
-                        vm.addrData[i].active = 0;
-                    }
-                }
-
-                for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-                    if (vm.addrJmp[i].destination <= addrJmp) {
-                        vm.addrJmp[i].active = 0;
-                    }
-                }
-
-                // TrackData(&vm, addrJmp - 1);
-
-                printf("# Resuming at L%04X...\n", addrJmp);
-
-                vm.running = 1;
-                vm.unsup = 0;
-                vm.pc = addrJmp;
-            }
-        } else if (vm.running == 0 && vm.pc < vm.length) {
             uint32_t addrJmp = 0xffffffff;
 
             for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
@@ -4164,7 +4137,9 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
     if (vm.length == 0) {
         printf("# Nothing to do.\n");
     } else if (vm.pc == vm.length) {
-        printf("# Finished!\n");
+        if (verbose) {
+            printf("# Finished!\n");
+        }
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");
     } else if (vm.running == 0 || vm.unsup != 0) {

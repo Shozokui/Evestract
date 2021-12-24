@@ -27,6 +27,6 @@ struct event_zone_t {
     uint32_t numEvents;
 };
 
-int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc);
+int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc, int verbose);
 
 #endif

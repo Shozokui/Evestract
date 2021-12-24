@@ -47,7 +47,7 @@ static uint8_t* ReadFile(const char* fileName, uint32_t* bufLen) {
         fprintf(stderr, "internal error read \"%s\"\n", fileName);
         free(buf);
         fclose(fp);
-        return NULL;       
+        return NULL;
     }
 
     fclose(fp);
@@ -57,6 +57,8 @@ static uint8_t* ReadFile(const char* fileName, uint32_t* bufLen) {
 }
 
 int main(int argc, char* argv[]) {
+
+    int verbose = 0;
 
     if (argc != 4) {
         // Wouldn't it be nice if this had knowledge of the DAT file layout.
@@ -92,7 +94,7 @@ int main(int argc, char* argv[]) {
     LoadDialog(&dialog, dialogBuf, dialogLen);
     LoadNPC(&npc, npcBuf, npcLen);
 
-    ParseEvent(eventBuf, eventLen, dialog, npc);
+    ParseEvent(eventBuf, eventLen, dialog, npc, verbose);
 
     UnloadNPC(npc);
 

@@ -22,7 +22,7 @@ static const struct npc_entry_t* FindNPC(const struct npc_t* npc, uint32_t npcId
     return NULL;
 }
 
-int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc) {
+int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialog, const struct npc_t* npc, int verbose) {
 
     struct event_zone_t* eventZone = (struct event_zone_t*) calloc(1, sizeof(struct event_zone_t));
     if (eventZone == NULL) {
@@ -96,47 +96,66 @@ int ParseEvent(const uint8_t* buf, uint32_t length, const struct dialog_t* dialo
         memcpy(&eventNpc->bytecode[0], &buf[offset], eventNpc->bytecodeSize);
     }
 
-    printf("Event NPC Count: %u\n", npcCount);
+    if (verbose) {
+        printf("### Event NPC Count: %u\n", npcCount);
+    }
 
     for (uint32_t i = 0; i < npcCount; i++) {
         struct event_npc_t* eventNpc = &eventZone->events[i];
 
+        if (i > 0) {
+            printf("\n\n");
+        }
+
         const struct npc_entry_t* entry = FindNPC(npc, eventNpc->NPCId);
-        if (entry != NULL) {
-            printf("Event NPC %5u NPC \"%s\" (%u)\n", i, entry->name, eventNpc->NPCId);
-        } else if (eventNpc->NPCId == 2147483632) {
-             printf("Event NPC %5u NPC %s (%u)\n", i, "[Zone]", eventNpc->NPCId);
+
+        if (verbose) {
+            if (entry != NULL) {
+                printf("### Event NPC %5u NPC \"%s\" (%u)\n", i, entry->name, eventNpc->NPCId);
+            } else if (eventNpc->NPCId == 2147483632) {
+                printf("### Event NPC %5u NPC %s (%u)\n", i, "[Zone]", eventNpc->NPCId);
+            } else {
+                printf("### Event NPC %5u NPC %s (%u)\n", i, "[Unknown]", eventNpc->NPCId);
+            }
         } else {
-             printf("Event NPC %5u NPC %s (%u)\n", i, "[Unknown]", eventNpc->NPCId);
+            if (entry != NULL) {
+                printf("### \"%s\" (%u)\n", entry->name, eventNpc->NPCId);
+            } else if (eventNpc->NPCId == 2147483632) {
+                printf("### %s (%u)\n", "[Zone]", eventNpc->NPCId);
+            } else {
+                printf("### %s (%u)\n", "[Unknown]", eventNpc->NPCId);
+            }
         }
 
-        printf("Event NPC %5u Event Count: %u\n", i, eventNpc->numEvents);
+        if (verbose) {
+            printf("### Event NPC %5u Event Count: %u\n", i, eventNpc->numEvents);
 
-        for (uint32_t j = 0; j < eventNpc->numEvents; j++) {
-            struct event_t* event = &eventNpc->events[j];
+            for (uint32_t j = 0; j < eventNpc->numEvents; j++) {
+                struct event_t* event = &eventNpc->events[j];
 
-            printf("Event NPC %5u Event %5u Id: %5u PC: L%04X\n",
-                i,
-                j,
-                event->id,
-                event->pc);
+                printf("### Event NPC %5u Event %5u Id: %5u PC: L%04X\n",
+                    i,
+                    j,
+                    event->id,
+                    event->pc);
+            }
+
+            printf("### Event NPC %5u Constant Count: %u\n", i, eventNpc->numConstants);
+
+            for (uint32_t j = 0; j < eventNpc->numConstants; j++) {
+                printf("### Event NPC %5u Constant %5u: %u\n", i, j, eventNpc->constants[j]);
+            }
+
+            printf("### Event NPC %5u Code Size: %u\n", i, eventNpc->bytecodeSize);
+
+            printf("### Event NPC %5u Code: ", i);
+            for (uint32_t k = 0; k < eventNpc->bytecodeSize; k++) {
+                printf("%02x", eventNpc->bytecode[k]);
+            }
+            printf("\n");
         }
 
-        printf("Event NPC %5u Constant Count: %u\n", i, eventNpc->numConstants);
-
-        for (uint32_t j = 0; j < eventNpc->numConstants; j++) {
-            printf("Event NPC %5u Constant %5u: %u\n", i, j, eventNpc->constants[j]);
-        }
-
-        printf("Event NPC %5u Code Size: %u\n", i, eventNpc->bytecodeSize);
-
-        printf("Event NPC %5u Code: ", i);
-        for (uint32_t k = 0; k < eventNpc->bytecodeSize; k++) {
-            printf("%02x", eventNpc->bytecode[k]);
-        }
-        printf("\n");
-
-        ParseScript(eventZone, i, dialog, npc);
+        ParseScript(eventZone, i, dialog, npc, verbose);
     }
 
     return 0;
