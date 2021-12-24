@@ -159,7 +159,7 @@ static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, ui
         sprintf(buf, "EntityId");
     } else if (addr == 0x7f0b) {
         // Read only - bit 0x19 of Flags1
-        sprintf(buf, "EntityFlag1_0x19");
+        sprintf(buf, "EntityGender");
     } else if (addr == 0x7f80) {
         // Read only - int(Position * 1000.0)
         sprintf(buf, "PlayerIntPosition.x");
@@ -186,7 +186,7 @@ static const char* getVar16NameWithFlags(const struct vm_t* vm, uint32_t off, ui
         sprintf(buf, "PlayerEntityId");
     } else if (addr == 0x7f8b) {
         // Read only - bit 0x19 of Flags1
-        sprintf(buf, "PlayerEntityFlag1_0x19");
+        sprintf(buf, "PlayerGender");
     } else if (addr >= 0x8000 && addr < (0x8000 + vm->numConstants)) {
         uint32_t constant = vm->constants[addr - 0x8000];
         if (IsFloat) {
@@ -256,36 +256,6 @@ static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
         sprintf(buf, "#%u[\"%s\"]", addr, npcName);
     } else if (addr >= 0x7fffff00 && addr < 0x80000000) {
         switch (addr) {
-            // party members by member id (1-5)
-            // 0x7fffffc1
-            // 0x7fffffc2
-            // 0x7fffffc3
-            // 0x7fffffc4
-            // 0x7fffffc5
-
-            // alliance members by member id (0x10-0x15)
-            // 0x7fffffc6
-            // 0x7fffffc7
-            // 0x7fffffc8
-            // 0x7fffffc9
-            // 0x7fffffca
-            // 0x7fffffcb
-
-            // alliance members by member id (0x20-0x25)
-            // 0x7fffffcc
-            // 0x7fffffcd
-            // 0x7fffffce
-            // 0x7fffffcf
-            // 0x7fffffd0
-            // 0x7fffffd1
-
-            // party members by index
-            // 0x7ffffff1
-            // 0x7ffffff2
-            // 0x7ffffff3
-            // 0x7ffffff4
-            // 0x7ffffff5
-
             case 0x7fffffc0:
             case 0x7ffffff0:
             case 0x7ffffff9:
@@ -294,6 +264,75 @@ static const char* getVar32Name(struct vm_t* vm, uint32_t off) {
             case 0x7ffffff8:
                 sprintf(buf, "[NPC]");
                 break;
+
+            case 0x7ffffff1:
+                sprintf(buf, "[PartyMember2]");
+                break;
+            case 0x7ffffff2:
+                sprintf(buf, "[PartyMember3]");
+                break;
+            case 0x7ffffff3:
+                sprintf(buf, "[PartyMember4]");
+                break;
+            case 0x7ffffff4:
+                sprintf(buf, "[PartyMember5]");
+                break;
+            case 0x7ffffff5:
+                sprintf(buf, "[PartyMember6]");
+                break;
+
+            case 0x7fffffc1:
+                sprintf(buf, "[AllianceMember2]");
+                break;
+            case 0x7fffffc2:
+                sprintf(buf, "[AllianceMember3]");
+                break;
+            case 0x7fffffc3:
+                sprintf(buf, "[AllianceMember4]");
+                break;
+            case 0x7fffffc4:
+                sprintf(buf, "[AllianceMember5]");
+                break;
+            case 0x7fffffc5:
+                sprintf(buf, "[AllianceMember6]");
+                break;
+            case 0x7fffffc6:
+                sprintf(buf, "[AllianceMember7]");
+                break;
+            case 0x7fffffc7:
+                sprintf(buf, "[AllianceMember8]");
+                break;
+            case 0x7fffffc8:
+                sprintf(buf, "[AllianceMember9]");
+                break;
+            case 0x7fffffc9:
+                sprintf(buf, "[AllianceMember10]");
+                break;
+            case 0x7fffffca:
+                sprintf(buf, "[AllianceMember11]");
+                break;
+            case 0x7fffffcb:
+                sprintf(buf, "[AllianceMember12]");
+                break;
+            case 0x7fffffcc:
+                sprintf(buf, "[AllianceMember13]");
+                break;
+            case 0x7fffffcd:
+                sprintf(buf, "[AllianceMember14]");
+                break;
+            case 0x7fffffce:
+                sprintf(buf, "[AllianceMember15]");
+                break;
+            case 0x7fffffcf:
+                sprintf(buf, "[AllianceMember16]");
+                break;
+            case 0x7fffffd0:
+                sprintf(buf, "[AllianceMember17]");
+                break;
+            case 0x7fffffd1:
+                sprintf(buf, "[AllianceMember18]");
+                break;
+
             default:
                 sprintf(buf, "[%08x]", addr);
         }
