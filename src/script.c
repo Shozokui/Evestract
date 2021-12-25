@@ -599,7 +599,7 @@ static void Opcode1D(struct vm_t* vm) {
 }
 
 static void Opcode1E(struct vm_t* vm) {
-    printf("Opcode1E %s\n",
+    printf("LOOKAT %s\n",
         getVar32Name(vm, 1));
     vm->pc += 5;
 }
@@ -632,7 +632,7 @@ static void Opcode20(struct vm_t* vm) {
 }
 
 static void Opcode21(struct vm_t* vm) {
-    printf("STOP\n");
+    printf("FINISHEVENT\n");
     vm->pc += 1;
 }
 
@@ -644,11 +644,14 @@ static void Opcode22(struct vm_t* vm) {
 }
 
 static void Opcode23(struct vm_t* vm) {
-    printf("Opcode23\n");
+    // Text was just shown -- wait for a continue / cancel button press.
+    // Cancelling will end the event.
+    printf("WAITFORINPUT\n");
     vm->pc += 1;
 }
 
 static void Opcode24(struct vm_t* vm) {
+    // Show a dialog with options.
     const char* message = getVar16Message(vm, 1);
 
     if (message != NULL) {
@@ -669,11 +672,14 @@ static void Opcode24(struct vm_t* vm) {
 }
 
 static void Opcode25(struct vm_t* vm) {
-    printf("Opcode25\n");
+    // A dialog was just shown -- wait for an option select / cancel button press.
+    // Cancelling will end the event.
+    printf("WAITFORPROMPT\n");
     vm->pc += 1;
 }
 
 static void Opcode26(struct vm_t* vm) {
+    // Getting here will lock up the event.
     printf("HALT\n");
     vm->pc += 1;
 }
@@ -685,7 +691,7 @@ static void Opcode27(struct vm_t* vm) {
     // no free instances. The caller does not wait for the
     // event to complete.
     printf("STARTEVENT1 #%d, %s, %s\n",
-        lsb8(vm->code, vm->pc, 1),
+        getImm8(vm, 1),
         getVar32Name(vm, 2),
         getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
 
@@ -697,7 +703,7 @@ static void Opcode28(struct vm_t* vm) {
 
     // Starts an event for an npc, waiting for the event to complete.
     printf("STARTEVENT2 #%d, %s, %s\n",
-        lsb8(vm->code, vm->pc, 1),
+        getImm8(vm, 1),
         getVar32Name(vm, 2),
         getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
 
@@ -711,7 +717,7 @@ static void Opcode29(struct vm_t* vm) {
     // The caller has an extra validity check over V2 to verify
     // that the npc is still valid before waiting.
     printf("STARTEVENT3 #%d, %s, %s\n",
-        lsb8(vm->code, vm->pc, 1),
+        getImm8(vm, 1),
         getVar32Name(vm, 2),
         getEventLabelByAddrAndIndex(vm, addr, 6, lsb8(vm->code, vm->pc, 6)));
 
@@ -719,8 +725,12 @@ static void Opcode29(struct vm_t* vm) {
 }
 
 static void Opcode2A(struct vm_t* vm) {
-    printf("Opcode2A %02x, %s\n",
-        lsb8(vm->code, vm->pc, 1),
+    // Waits while there are any events running on the target
+    // at an equal or higher priority.
+    printf("WAITFOREVENTS #%d, %s\n",
+        // Baseline priority
+        getImm8(vm, 1),
+        // Entity to test
         getVar32Name(vm, 2));
 
     vm->pc += 6;
@@ -1900,7 +1910,9 @@ static void Opcode7E(struct vm_t* vm) {
 }
 
 static void Opcode7F(struct vm_t* vm) {
-    printf("Opcode7F\n");
+    // A dialog was just shown -- wait for an option select / cancel button press.
+    // Cancelling will NOT end the event.
+    printf("WAITFORPROMPTNOCANCEL\n");
 
     vm->pc += 1;
 }

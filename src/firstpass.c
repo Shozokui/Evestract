@@ -90,7 +90,7 @@ static int OpcodeRET(struct vm_t* vm) {
     return 0;
 }
 
-static int OpcodeSTOP(struct vm_t* vm) {
+static int OpcodeFINISHEVENT(struct vm_t* vm) {
     TrackEnd(vm, vm->pc + 1);
     return 0;
 }
@@ -226,7 +226,7 @@ static const Opcode OpcodeTable[] = {
     OPCODE        (0x1F00,  8                         ),
     OPCODE        (0x1F01,  2                         ),
     OPCODE        (0x20  ,  2                         ),
-    OPCODE_SPECIAL(0x21  ,  1, OpcodeSTOP             ),
+    OPCODE_SPECIAL(0x21  ,  1, OpcodeFINISHEVENT      ),
     OPCODE        (0x22  ,  2                         ),
     OPCODE        (0x23  ,  1                         ),
     OPCODE        (0x24  ,  7                         ),
