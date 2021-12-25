@@ -17,9 +17,9 @@ int LoadNPC(struct npc_t** npc, const uint8_t* buf, uint32_t length) {
     // Auto-detect stride.
     uint32_t structLen = 0;
 
-    if (length >= 0x20 && memcmp(buf, header, 0x20) == 0) {
+    if (length >= 0x20 && memcmp(buf, header, 0x20) == 0 && (length % 0x20) == 0) {
         structLen = 0x20;
-    } else if (length >= 0x1c && memcmp(buf, header, 0x1c) == 0) {
+    } else if (length >= 0x1c && memcmp(buf, header, 0x1c) == 0 && (length % 0x1c) == 0) {
         structLen = 0x1c;
     }
 
@@ -29,6 +29,9 @@ int LoadNPC(struct npc_t** npc, const uint8_t* buf, uint32_t length) {
     }
 
     if ((length % structLen) != 0) {
+        // This test was moved earlier to better support older files that
+        // would get misreported to be the larger stride. Still not completely
+        // robust but this will do for now.
         fprintf(stderr, "bad npc dat length\n");
         return -1;
     }
