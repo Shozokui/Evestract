@@ -3997,6 +3997,10 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
                 }
             }
 
+            if (!isData) {
+                printf("        # Possibly unreachable code or garbage data:\n");
+            }
+
             printf(".L%04X: .db $", vm.pc);
             while (vm.pc < addrJmp) {
                 printf("%02x", vm.code[vm.pc]);

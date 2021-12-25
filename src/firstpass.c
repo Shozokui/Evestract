@@ -107,6 +107,20 @@ static int OpcodeRET(struct vm_t* vm) {
 }
 
 static int OpcodeFINISHEVENT(struct vm_t* vm) {
+    // The following end opcode is unreachable
+    // but it gets auto-generated MOST of the time.
+    // Try to include it to cut down on db statements.
+    if (vm->pc + 1 < vm->length) {
+        // Is this an end opcode?
+        if (vm->code[vm->pc + 1] == 0) {
+            // Continue on...
+            return 1;
+        }
+
+        // Other unreachables could be included
+        // but at the risk of increased
+        // state pollution or confusion.
+    }
     TrackEnd(vm, vm->pc + 1);
     return 0;
 }
