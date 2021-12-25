@@ -330,16 +330,12 @@ static void OpcodeUNSUP(struct vm_t* vm) {
 static void Opcode00(struct vm_t* vm) {
     printf("END\n");
 
-    // TrackEnd(vm, vm->pc + 1);
-
     vm->pc += 1;
 }
 
 static void Opcode01(struct vm_t* vm) {
     printf("JMP .L%04X\n",
         getImm16(vm, 1));
-
-    // TrackJmp(vm, getImm16(vm, 1));
 
     vm->pc += 3;
 }
@@ -394,8 +390,6 @@ static void Opcode02(struct vm_t* vm) {
         Op,
         getVar16Name(vm, 3),
         getImm16(vm, 6));
-
-    // TrackJmp(vm, getImm16(vm, 6));
 
     vm->pc += 8;
 }
@@ -564,15 +558,12 @@ static void Opcode1A(struct vm_t* vm) {
     printf("CALL .L%04X\n",
         getImm16(vm, 1));
 
-    // TrackJmp(vm, getImm16(vm, 1));
-
     vm->pc += 3;
 }
 
 static void Opcode1B(struct vm_t* vm) {
     printf("RET\n");
 
-    // TrackEnd(vm, vm->pc + 1);
     vm->pc += 1;
 }
 
@@ -924,8 +915,6 @@ static void Opcode3E(struct vm_t* vm) {
         getVar16Name(vm, 3),
         getImm16(vm, 5));
 
-    // TrackJmp(vm, getImm16(vm, 5));
-
     vm->pc += 7;
 }
 
@@ -992,8 +981,6 @@ static void Opcode44(struct vm_t* vm) {
     printf("ISENTITY %s, .L%04X\n",
         getVar16Name(vm, 1),
         getImm16(vm, 3));
-
-    // TrackJmp(vm, getImm16(vm, 3));
 
     vm->pc += 5;
 }
@@ -1938,8 +1925,6 @@ static void Opcode82(struct vm_t* vm) {
         getVar32FourCC(vm, 1),
         getImm16(vm, 5));
 
-    // TrackJmp(vm, getImm16(vm, 5));
-
     vm->pc += 7;
 }
 
@@ -2204,8 +2189,6 @@ static void Opcode9D(struct vm_t* vm) {
             getImm16(vm, 2),
             getVar16Name(vm, 6));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 8;
     } else if (param == 1) {
         printf("COPYVECTOR %s, .L%04X[%s]\n",
@@ -2213,16 +2196,12 @@ static void Opcode9D(struct vm_t* vm) {
             getImm16(vm, 2),
             getVar16Name(vm, 6));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 8;
     } else if (param == 2) {
         printf("Opcode9D %02x, .L%04X, %s\n",
             param,
             getImm16(vm, 2),
             getVar16Name(vm, 4));
-
-        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 6;
     } else if (param == 3) {
@@ -2248,8 +2227,6 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 6),
             getVar16Name(vm, 4));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 8;
     } else if (param == 6) {
         printf("Opcode9D %02x, .L%04X, %s, %s\n",
@@ -2258,16 +2235,12 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 8;
     } else if (param == 7) {
         // CALL by jump table
         printf("CALL .L%04X[%s]\n",
             getImm16(vm, 2),
             getVar16Name(vm, 4));
-
-        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 6;
     } else if (param == 8) {
@@ -2279,8 +2252,6 @@ static void Opcode9D(struct vm_t* vm) {
             text,
             getImm16(vm, 21));
 
-        // TrackJmp(vm, getImm16(vm, 21));
-
         vm->pc += 23;
     } else if (param == 9) {
         printf("STRCMP %s, %02x, %s, .L%04X\n",
@@ -2288,8 +2259,6 @@ static void Opcode9D(struct vm_t* vm) {
             getImm8(vm, 6),
             getVar16Name(vm, 4),
             getImm16(vm, 7));
-
-        // TrackJmp(vm, getImm16(vm, 7));
 
         vm->pc += 9;
     } else if (param == 10) {
@@ -2300,8 +2269,6 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 10;
     } else if (param == 11) {
         printf("COPYVECTORBOUNDED %s, .L%04X[%s], %s\n",
@@ -2310,8 +2277,6 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 10;
     } else if (param == 12) {
         printf("Opcode9D %02x, .L%04X, %s, %s\n",
@@ -2319,8 +2284,6 @@ static void Opcode9D(struct vm_t* vm) {
             getImm16(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6));
-
-        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 8;
     } else if (param == 13) {
@@ -2349,8 +2312,6 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 8),
             getVar16Name(vm, 4));
 
-        // TrackData(vm, getImm16(vm, 2));
-
         vm->pc += 10;
     } else if (param == 16) {
         printf("Opcode9D %02x, .L%04X, %s, %s, %s\n",
@@ -2359,8 +2320,6 @@ static void Opcode9D(struct vm_t* vm) {
             getVar16Name(vm, 4),
             getVar16Name(vm, 6),
             getVar16Name(vm, 8));
-
-        // TrackData(vm, getImm16(vm, 2));
 
         vm->pc += 10;
     } else {
@@ -4052,13 +4011,6 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
     vm.addrData = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
     vm.addrDataLen = 0;
 
-    // TrackJmp(&vm, vm.length);
-
-    // for (uint32_t i = 0; i < eventNpc->numEvents; i++) {
-    //    const struct event_t* event = &eventNpc->events[i];
-    //    TrackJmp(&vm, event->pc);
-    // }
-
     firstpass(&vm, eventNpc);
     vm.pc = 0;
     vm.running = 1;
@@ -4100,7 +4052,7 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
         }
 
         if (isEnd || isData) {
-            uint32_t addrJmp = 0xffffffff;
+            uint32_t addrJmp = vm.length;
 
             for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
                 if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
@@ -4112,10 +4064,6 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
                 if (vm.addrData[i].destination > vm.pc && vm.addrData[i].destination < addrJmp) {
                     addrJmp = vm.addrData[i].destination;
                 }
-            }
-
-            if (addrJmp == 0xffffffff) {
-                addrJmp = vm.length;
             }
 
             printf(".L%04X: .db $", vm.pc);
@@ -4145,14 +4093,15 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
         OpcodeTable[vm.code[vm.pc]](&vm);
 
         if (vm.running == 0 && vm.pc < vm.length) {
-            // B104 ??? - What's going on here?
-            printf("# ");
+            // Disassembly ended early, so dump the state for debugging purposes.
+            printf("# PC@%04X: ", vm.pc);
             for (uint32_t i = vm.pc; i < vm.length && i < vm.pc + 64; i++) {
                 printf("%02X", vm.code[i]);
             }
             printf("\n");
 
-            uint32_t addrJmp = 0xffffffff;
+            // Look for a suitable point to resume disassembly.
+            uint32_t addrJmp = vm.length;
 
             for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
                 if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
@@ -4160,7 +4109,19 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
                 }
             }
 
-            if (addrJmp < 0xffffffff) {
+            for (uint32_t i = 0; i < vm.addrDataLen; i++) {
+                if (vm.addrData[i].destination > vm.pc && vm.addrData[i].destination < addrJmp) {
+                    addrJmp = vm.addrData[i].destination;
+                }
+            }
+
+            for (uint32_t i = 0; i < vm.addrEndLen; i++) {
+                if (vm.addrEnd[i].destination > vm.pc && vm.addrEnd[i].destination < addrJmp) {
+                    addrJmp = vm.addrEnd[i].destination;
+                }
+            }
+
+            if (addrJmp < vm.length) {
                 printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
                 printf("# Skipping ahead to L%04X...\n", addrJmp);
 
