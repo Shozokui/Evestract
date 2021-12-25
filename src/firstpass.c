@@ -19,49 +19,65 @@ static uint16_t getImm16(const struct vm_t* vm, uint32_t off) {
    return lsb16(vm->code, vm->pc, off);
 }
 
-static void TrackEnd(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrEndLen; i++) {
-        if (vm->addrEnd[i].destination == addr) {
-            return;
+struct tracer_state_t* FindTracerState(struct vm_t* vm, uint32_t addr) {
+    if (addr > vm->length) {
+        printf("# TRACER ERROR - searching for invalid address %04X\n", addr);
+        return NULL;
+    }
+
+    for (uint32_t i = 0; i < vm->tracerCount; i++) {
+        struct tracer_state_t* state = &vm->tracerState[i];
+
+        if (state->address == addr) {
+            return state;
         }
     }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrEnd[vm->addrEndLen++] = ref;
+
+    return NULL;
+}
+
+static struct tracer_state_t* GetTracerState(struct vm_t* vm, uint32_t addr) {
+    struct tracer_state_t* state = FindTracerState(vm, addr);
+
+    if (state == NULL) {
+        if (addr > vm->length) {
+            printf("# TRACER ERROR - trying to alloc for invalid address %04X\n", addr);
+            return NULL;
+        }
+
+        struct tracer_state_t s = {
+            .address = addr,
+            .flags = 0
+        };
+        vm->tracerState[vm->tracerCount++] = s;
+        state = &vm->tracerState[vm->tracerCount - 1];
+    }
+
+    return state;
+}
+
+static void TrackEnd(struct vm_t* vm, uint32_t addr) {
+    struct tracer_state_t* state = GetTracerState(vm, addr);
+
+    state->flags |= TRACER_END;
 }
 
 static void TrackJmp(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrJmpLen; i++) {
-        if (vm->addrJmp[i].destination == addr) {
-            return;
-        }
-    }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrJmp[vm->addrJmpLen++] = ref;
+    struct tracer_state_t* state = GetTracerState(vm, addr);
+
+    state->flags |= TRACER_JUMP;
 }
 
 static void TrackData(struct vm_t* vm, uint32_t addr) {
-    for (uint32_t i = 0; i < vm->addrDataLen; i++) {
-        if (vm->addrData[i].destination == addr) {
-            return;
-        }
-    }
-    struct reference_t ref = {
-        .location = vm->pc,
-        .destination = addr,
-        .end = 0,
-        .active = 1
-    };
-    vm->addrData[vm->addrDataLen++] = ref;
+    struct tracer_state_t* state = GetTracerState(vm, addr);
+
+    state->flags |= TRACER_DATA;
+}
+
+static void TrackJumpTable(struct vm_t* vm, uint32_t addr) {
+    struct tracer_state_t* state = GetTracerState(vm, addr);
+
+    state->flags |= (TRACER_DATA|TRACER_JUMP_TABLE);
 }
 
 static int OpcodeEND(struct vm_t* vm) {
@@ -141,8 +157,7 @@ static int Opcode9D06(struct vm_t* vm) {
 }
 
 static int OpcodeCALLTABLE(struct vm_t* vm) {
-    // TODO - special tracking for the jump table
-    TrackData(vm, getImm16(vm, 2));
+    TrackJumpTable(vm, getImm16(vm, 2));
     return 1;
 }
 
@@ -180,11 +195,6 @@ static int Opcode9D10(struct vm_t* vm) {
     TrackData(vm, getImm16(vm, 2));
     return 1;
 }
-
-// static int OpcodeB104(struct vm_t* vm) {
-//    // TrackEnd(vm, vm->pc);
-//    return 1;
-// }
 
 #define OPCODE(o, l)            { .opcode = o, .length = l, .special = NULL }
 #define OPCODE_IS_TWO(o)        { .opcode = o, .length = -1, .special = NULL }
@@ -692,10 +702,11 @@ void firstpass(struct vm_t* vm, const struct event_npc_t* eventNpc) {
     for (;;) {
         uint32_t addrJmp = 0xffffffff;
 
-        for (uint32_t i = 0; i < vm->addrJmpLen; i++) {
-            if (vm->addrJmp[i].active) {
-                addrJmp = vm->addrJmp[i].destination;
-                vm->addrJmp[i].active = 0;
+        for (uint32_t i = 0; i < vm->tracerCount; i++) {
+            struct tracer_state_t* state = &vm->tracerState[i];
+            if (IS_UNVISITED_JUMP(state)) {
+                addrJmp = state->address;
+                state->flags |= TRACER_INT_JUMP_VISITED;
                 break;
             }
         }

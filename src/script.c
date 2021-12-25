@@ -321,10 +321,7 @@ static const char* getVar16Message(const struct vm_t* vm, uint32_t off) {
 }
 
 static void OpcodeUNSUP(struct vm_t* vm) {
-     printf("UNSUP %02x\n",
-        lsb8(vm->code, vm->pc));
     vm->running = 0;
-    vm->unsup = 1;
 }
 
 static void Opcode00(struct vm_t* vm) {
@@ -381,7 +378,6 @@ static void Opcode02(struct vm_t* vm) {
             break;
         default:
             vm->running = 0;
-            vm->unsup = 1;
             return;
     }
 
@@ -611,7 +607,6 @@ static void Opcode1F(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -801,7 +796,6 @@ static void Opcode31(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -860,8 +854,8 @@ static void Opcode38(struct vm_t* vm) {
 }
 
 static void Opcode39(struct vm_t* vm) {
-    printf("Opcode39 %s\n",
-        getVar16Name(vm, 1));
+    printf("SETROTATION %s\n",
+        getVar16NameRadians(vm, 1));
 
     vm->pc += 3;
 }
@@ -972,7 +966,6 @@ static void Opcode43(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1017,7 +1010,6 @@ static void Opcode46(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1039,7 +1031,6 @@ static void Opcode47(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1088,7 +1079,7 @@ static void Opcode4A(struct vm_t* vm) {
 static void Opcode4B(struct vm_t* vm) {
     printf("Opcode4B %s, %s\n",
         getVar32Name(vm, 1),
-        getVar16Name(vm, 5));
+        getVar16NameRadians(vm, 5));
 
     vm->pc += 7;
 }
@@ -1251,7 +1242,6 @@ static void Opcode59(struct vm_t* vm) {
         vm->pc += 8;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1270,7 +1260,6 @@ static void Opcode5A(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1309,7 +1298,6 @@ static void Opcode5C(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1384,7 +1372,6 @@ static void Opcode5F(struct vm_t* vm) {
         vm->pc += 14;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1406,14 +1393,7 @@ static void Opcode60(struct vm_t* vm) {
             getVar32FourCC(vm, 2));
         vm->pc += 6;
     } else {
-        // Halting here although these are just skipped.
-        // printf("Opcode60 %02x\n",
-        //    param
-        //    );
-        // vm->pc += 2;
-
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1662,7 +1642,6 @@ static void Opcode71(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1688,7 +1667,6 @@ static void Opcode72(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1730,7 +1708,6 @@ static void Opcode75(struct vm_t* vm) {
 
         vm->pc += 8;
     } else {
-        vm->unsup = 1;
         vm->running = 0;
     }
 }
@@ -1784,7 +1761,6 @@ static void Opcode79(struct vm_t* vm) {
         vm->pc += 10;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1829,7 +1805,6 @@ static void Opcode7A(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -1892,7 +1867,6 @@ static void Opcode7E(struct vm_t* vm) {
         vm->pc += 8;
     } else  {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2067,7 +2041,6 @@ static void Opcode8C(struct vm_t* vm) {
         vm->pc += 14;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2324,7 +2297,6 @@ static void Opcode9D(struct vm_t* vm) {
         vm->pc += 10;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2421,7 +2393,6 @@ static void OpcodeA6(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2441,7 +2412,6 @@ static void OpcodeA7(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2627,7 +2597,6 @@ static void OpcodeAB(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2661,7 +2630,6 @@ static void OpcodeAC(struct vm_t* vm) {
         vm->pc += 8;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2734,7 +2702,6 @@ static void OpcodeAE(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2771,7 +2738,6 @@ static void OpcodeB0(struct vm_t* vm) {
         vm->pc += 12;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2813,7 +2779,6 @@ static void OpcodeB1(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2833,7 +2798,6 @@ static void OpcodeB2(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -2912,7 +2876,6 @@ static void OpcodeB3(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3069,7 +3032,6 @@ static void OpcodeB4(struct vm_t* vm) {
         vm->pc += 2;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3083,7 +3045,6 @@ static void OpcodeB5(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3181,7 +3142,6 @@ static void OpcodeB6(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3227,7 +3187,6 @@ static void OpcodeB7(struct vm_t* vm) {
         vm->pc += 8;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3268,7 +3227,7 @@ static void OpcodeBA(struct vm_t* vm) {
         getVar16NameFloat100(vm, 5),
         getVar16NameFloat100(vm, 7),
         getVar16NameFloat100(vm, 9),
-        getVar16NameFloat100(vm, 11));
+        getVar16NameRadians(vm, 11));
 
     vm->pc += 13;
 }
@@ -3346,7 +3305,6 @@ static void OpcodeBF(struct vm_t* vm) {
         vm->pc += 8;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3382,7 +3340,6 @@ static void OpcodeC2(struct vm_t* vm) {
         vm->pc += 6;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3499,7 +3456,6 @@ static void OpcodeCC(struct vm_t* vm) {
         vm->pc += 4;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3634,7 +3590,6 @@ static void OpcodeD4(struct vm_t* vm) {
         vm->pc += 12;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3710,7 +3665,6 @@ static void OpcodeD8(struct vm_t* vm) {
         vm->pc += 12;
     } else {
         vm->running = 0;
-        vm->unsup = 1;
     }
 }
 
@@ -3992,7 +3946,6 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
     vm.code = eventNpc->bytecode;
     vm.pc = 0;
     vm.running = 1;
-    vm.unsup = 0;
     vm.length = eventNpc->bytecodeSize;
 
     vm.constants = eventNpc->constants;
@@ -4002,44 +3955,24 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
     vm.dialog = dialog;
     vm.npc = npc;
 
-    vm.addrEnd = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
-    vm.addrEndLen = 0;
-
-    vm.addrJmp = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
-    vm.addrJmpLen = 0;
-
-    vm.addrData = (struct reference_t*) calloc(eventNpc->bytecodeSize + eventNpc->numEvents, sizeof(struct reference_t));
-    vm.addrDataLen = 0;
+    vm.tracerState = (struct tracer_state_t*) calloc(vm.length + 1, sizeof(struct tracer_state_t));
+    vm.tracerCount = 0;
 
     firstpass(&vm, eventNpc);
     vm.pc = 0;
     vm.running = 1;
-    vm.unsup = 0;
 
     while (vm.running != 0 && vm.pc < vm.length) {
         int isJumpTarget = 0;
         int isData = 0;
         int isEnd = 0;
 
-        for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-            if (vm.pc == vm.addrJmp[i].destination) {
-                isJumpTarget = 1;
-                break;
-            }
-        }
+        struct tracer_state_t* state = FindTracerState(&vm, vm.pc);
 
-        for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-            if (vm.pc == vm.addrData[i].destination) {
-                isData = 1;
-                break;
-            }
-        }
-
-        for (uint32_t i = 0; i < vm.addrEndLen; i++) {
-            if (vm.pc == vm.addrEnd[i].destination) {
-                isEnd = 1;
-                break;
-            }
+        if (state != NULL) {
+            isJumpTarget = IS_JUMP(state);
+            isData = IS_DATA(state);
+            isEnd = IS_END(state);
         }
 
         if (isEnd) {
@@ -4054,15 +3987,13 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
         if (isEnd || isData) {
             uint32_t addrJmp = vm.length;
 
-            for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-                if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
-                    addrJmp = vm.addrJmp[i].destination;
-                }
-            }
+            for (uint32_t i = 0; i < vm.tracerCount; i++) {
+                struct tracer_state_t* state = &vm.tracerState[i];
 
-            for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-                if (vm.addrData[i].destination > vm.pc && vm.addrData[i].destination < addrJmp) {
-                    addrJmp = vm.addrData[i].destination;
+                if (IS_JUMP(state) || IS_DATA(state)) {
+                    if (state->address > vm.pc && state->address < addrJmp) {
+                        addrJmp = state->address;
+                    }
                 }
             }
 
@@ -4103,21 +4034,11 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
             // Look for a suitable point to resume disassembly.
             uint32_t addrJmp = vm.length;
 
-            for (uint32_t i = 0; i < vm.addrJmpLen; i++) {
-                if (vm.addrJmp[i].destination > vm.pc && vm.addrJmp[i].destination < addrJmp) {
-                    addrJmp = vm.addrJmp[i].destination;
-                }
-            }
+            for (uint32_t i = 0; i < vm.tracerCount; i++) {
+                struct tracer_state_t* state = &vm.tracerState[i];
 
-            for (uint32_t i = 0; i < vm.addrDataLen; i++) {
-                if (vm.addrData[i].destination > vm.pc && vm.addrData[i].destination < addrJmp) {
-                    addrJmp = vm.addrData[i].destination;
-                }
-            }
-
-            for (uint32_t i = 0; i < vm.addrEndLen; i++) {
-                if (vm.addrEnd[i].destination > vm.pc && vm.addrEnd[i].destination < addrJmp) {
-                    addrJmp = vm.addrEnd[i].destination;
+                if (state->address > vm.pc && state->address < addrJmp) {
+                    addrJmp = state->address;
                 }
             }
 
@@ -4126,7 +4047,6 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
                 printf("# Skipping ahead to L%04X...\n", addrJmp);
 
                 vm.running = 1;
-                vm.unsup = 0;
                 vm.pc = addrJmp;
             }
         }
@@ -4140,7 +4060,7 @@ int ParseScript(const struct event_zone_t* eventZone, uint32_t index, const stru
         }
     } else if (vm.pc >= vm.length) {
         printf("# Overrun.\n");
-    } else if (vm.running == 0 || vm.unsup != 0) {
+    } else if (vm.running == 0) {
         printf("# Halted. // %04x: %02x\n", vm.pc, vm.code[vm.pc]);
     } else {
         printf("# Underrun\n");
