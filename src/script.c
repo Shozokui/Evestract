@@ -1434,7 +1434,7 @@ static void Opcode64(struct vm_t* vm) {
 }
 
 static void Opcode65(struct vm_t* vm) {
-    printf("Opcode65 %s, %s, %s\n",
+    printf("GETDISTANCE %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7));
@@ -2373,21 +2373,24 @@ static void OpcodeA5(struct vm_t* vm) {
 }
 
 static void OpcodeA6(struct vm_t* vm) {
-    uint32_t param = lsb8(vm->code, vm->pc, 1);
+    uint32_t param = getImm8(vm, 1);
 
+    // a.k.a. "Special Release"
+    //
+    // Only seen once as part of the Windurst 9-2 ending;
+    // the script uses the stored value to activate
+    // the corresponding subregion.
+    // Exact use unknown atm.
     if (param == 0) {
-        printf("OpcodeA6 %02x\n",
-            param);
+        printf("WINDURST92\n");
 
         vm->pc += 2;
     } else if (param == 1) {
-        printf("OpcodeA6 %02x\n",
-            param);
+        printf("WINDURST92 WAIT\n");
 
         vm->pc += 2;
     } else if (param == 2) {
-        printf("OpcodeA6 %02x, %s\n",
-            param,
+        printf("WINDURST92 STORE, %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
@@ -2399,14 +2402,14 @@ static void OpcodeA6(struct vm_t* vm) {
 static void OpcodeA7(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
+    // Sends an event update packet and waits for
+    // the instance entry response.
     if (param == 0) {
-        printf("OpcodeA7 %02x\n",
-            param);
+        printf("ENTERINSTANCE\n");
 
         vm->pc += 2;
     } else if (param == 1) {
-        printf("OpcodeA7 %02x, %s\n",
-            param,
+        printf("ENTERINSTANCE WAIT, %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
