@@ -23,13 +23,13 @@ int InitFTable(struct ftable_t** pFTable, const char* basepath) {
         if (i == 1) {
             snprintf(filePath, sizeof(filePath), "%s\\VTABLE.DAT", basepath);
         } else {
-            snprintf(filePath, sizeof(filePath), "%s\\ROM%u\\VTABLE%u.DAT", basepath, i + 1, i + 1);
+            snprintf(filePath, sizeof(filePath), "%s\\ROM%u\\VTABLE%u.DAT", basepath, i, i);
         }
 #else
         if (i == 1) {
             snprintf(filePath, sizeof(filePath), "%s/VTABLE.DAT", basepath);
         } else {
-            snprintf(filePath, sizeof(filePath), "%s/ROM%u/VTABLE%u.DAT", basepath, i + 1, i + 1);
+            snprintf(filePath, sizeof(filePath), "%s/ROM%u/VTABLE%u.DAT", basepath, i, i);
         }
 #endif
 
@@ -45,13 +45,13 @@ int InitFTable(struct ftable_t** pFTable, const char* basepath) {
         if (i == 1) {
             snprintf(filePath, sizeof(filePath), "%s\\FTABLE.DAT", basepath);
         } else {
-            snprintf(filePath, sizeof(filePath), "%s\\ROM%u\\FTABLE%u.DAT", basepath, i + 1, i + 1);
+            snprintf(filePath, sizeof(filePath), "%s\\ROM%u\\FTABLE%u.DAT", basepath, i, i);
         }
 #else
         if (i == 1) {
             snprintf(filePath, sizeof(filePath), "%s/FTABLE.DAT", basepath);
         } else {
-            snprintf(filePath, sizeof(filePath), "%s/ROM%u/FTABLE%u.DAT", basepath, i + 1, i + 1);
+            snprintf(filePath, sizeof(filePath), "%s/ROM%u/FTABLE%u.DAT", basepath, i, i);
         }
 #endif
 
@@ -127,13 +127,13 @@ int GetDatPath(struct ftable_t* ftable, char* buf, size_t length, const char* ba
         if (version == 1) {
             snprintf(buf, length, "%s\\ROM\\%u\\%u.DAT", basepath, fileIndex >> 7, fileIndex & 0x7f);
         } else {
-            snprintf(buf, length, "%s\\ROM%u\\%u\\%u.DAT", basepath, i + 1, fileIndex >> 7, fileIndex & 0x7f);
+            snprintf(buf, length, "%s\\ROM%u\\%u\\%u.DAT", basepath, version, fileIndex >> 7, fileIndex & 0x7f);
         }
     } else {
         if (version == 1) {
             snprintf(buf, length, "ROM\\%u\\%u.DAT", fileIndex >> 7, fileIndex & 0x7f);
         } else {
-            snprintf(buf, length, "ROM%u\\%u\\%u.DAT", i + 1, fileIndex >> 7, fileIndex & 0x7f);
+            snprintf(buf, length, "ROM%u\\%u\\%u.DAT", version, fileIndex >> 7, fileIndex & 0x7f);
         }
     }
 #else
