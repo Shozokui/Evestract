@@ -59,25 +59,33 @@ static struct tracer_state_t* GetTracerState(struct vm_t* vm, uint32_t addr) {
 static void TrackEnd(struct vm_t* vm, uint32_t addr) {
     struct tracer_state_t* state = GetTracerState(vm, addr);
 
-    state->flags |= TRACER_END;
+    if (state != NULL) {
+        state->flags |= TRACER_END;
+    }
 }
 
 static void TrackJmp(struct vm_t* vm, uint32_t addr) {
     struct tracer_state_t* state = GetTracerState(vm, addr);
 
-    state->flags |= TRACER_JUMP;
+    if (state != NULL) {
+        state->flags |= TRACER_JUMP;
+    }
 }
 
 static void TrackData(struct vm_t* vm, uint32_t addr) {
     struct tracer_state_t* state = GetTracerState(vm, addr);
 
-    state->flags |= TRACER_DATA;
+    if (state != NULL) {
+        state->flags |= TRACER_DATA;
+    }
 }
 
 static void TrackJumpTable(struct vm_t* vm, uint32_t addr) {
     struct tracer_state_t* state = GetTracerState(vm, addr);
 
-    state->flags |= (TRACER_DATA|TRACER_JUMP_TABLE);
+    if (state != NULL) {
+        state->flags |= (TRACER_DATA|TRACER_JUMP_TABLE);
+    }
 }
 
 static int OpcodeEND(struct vm_t* vm) {
