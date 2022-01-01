@@ -10,20 +10,27 @@
 
 int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
 
-    // Don't know if this is the correct way to count the number of strings.
-    uint32_t numEntries = 0;
-    uint32_t prev = 0;
+    if (length < 4) {
+        printf("Invalid event message file\n");
+        return -1;
+    }
+
+    if (lsb24(buf, 0) + 4 != length) {
+        printf("Invalid event message file\n");
+        return -1;
+    }
+
+    if (lsb8(buf, 3) != 0 && lsb8(buf, 3) != 0x10) {
+        printf("Invalid event message file\n");
+        return -1;
+    }
 
     uint32_t mask = (lsb8(buf, 3) == 0x10) ? 0x80808080 : 0;
+    uint32_t numEntries = 0;
 
-    for (uint32_t i = 4; i < (length & ~3); i += 4) {
-        uint32_t offset = lsb32(buf, i) ^ mask;
-        if (offset >= length || offset < prev) {
-            break;
-        }
-
-        prev = offset;
-        numEntries++;
+    if (length >= 8) {
+        uint32_t start = 4 + (lsb32(buf, 4) ^ mask);
+        numEntries = (start - 4) / 4;
     }
 
     struct dialog_entry_t* entries = (struct dialog_entry_t*) calloc(numEntries, sizeof(struct dialog_entry_t));
@@ -42,19 +49,20 @@ int LoadDialog(struct dialog_t** dialog, const uint8_t* buf, uint32_t length) {
 
     for (uint32_t i = 0; i < numEntries; i++) {
         uint32_t offset = 4 + (lsb32(buf, 4, i * 4) ^ mask);
+        const uint8_t* ptr = ptr8(buf, offset);
 
-        uint32_t nextOffset = (i + 1) == numEntries
-            ? length
-            : 4 + (lsb32(buf, 8, i * 4) ^ mask);
+        if (offset >= length) {
+            printf("Invalid event message file\n");
+            return -1;
+        }
 
-        uint32_t entryLen = nextOffset - offset;
+        uint32_t entryLen = GetEventMessageSize(ptr, length - offset, mask & 0xff);
 
         struct dialog_entry_t* entry = &entries[i];
 
         entry->id = i;
         entry->length = entryLen;
 
-        const uint8_t* ptr = ptr8(buf, offset);
         entry->text = (uint8_t*) calloc(1, entryLen + 1);
 
         memcpy(entry->text, ptr, entryLen);

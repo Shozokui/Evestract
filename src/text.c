@@ -9,48 +9,48 @@
 // WORK IN PROGRESS
 
 enum SpecialCode {
-	UNKNOWN = 1,
-	UNKNOWN_CHAR,
+	SPECIAL_CODE_UNKNOWN = 1,
+	SPECIAL_CODE_UNKNOWN_CHAR,
 
-	NUL,
-	SET_X,
-	SET_Y,
-	SKILL_TEXT,
-	PLAYER_NAME,
-	NPC_NAME,
-	VALUE,
-	INDEX,
-	SOUND_EFFECT,
-	EVENT_SOUND_EFFECT,
-	SPELL_NAME,
-	EVENT_SPELL_NAME,
-	NUMBER,
-	TIME,
-	ABILITY_NAME,
-	EVENT_ABILITY_NAME,
-	PARTY_MEMBER_NAME_BY_ID,
-	PARTY_MEMBER_NAME,
-	EVENT_STRING,
-	HEADING,
-	ABILITY_MODIFIERS,
-	PLAYER_GENDER,
-	ABILITY_PLURAL_SELECT,
-	NPC_PLURAL_SELECT,
-	NPC_PROPER_SELECT,
-	ABILITY_NAME2,
-	NPC0_GENDER,
-	NPC1_GENDER,
-	PLURAL_SELECT,
-	SPECIAL_NAME,
-	TWO_DIGIT_VALUE,
-	HEX_VALUE,
-	BINARY_VALUE,
-	ACTION_HEX_VALUE,
+	SPECIAL_CODE_NUL,
+	SPECIAL_CODE_SET_X,
+	SPECIAL_CODE_SET_Y,
+	SPECIAL_CODE_SKILL_TEXT,
+	SPECIAL_CODE_PLAYER_NAME,
+	SPECIAL_CODE_NPC_NAME,
+	SPECIAL_CODE_VALUE,
+	SPECIAL_CODE_INDEX,
+	SPECIAL_CODE_SOUND_EFFECT,
+	SPECIAL_CODE_EVENT_SOUND_EFFECT,
+	SPECIAL_CODE_SPELL_NAME,
+	SPECIAL_CODE_EVENT_SPELL_NAME,
+	SPECIAL_CODE_NUMBER,
+	SPECIAL_CODE_TIME,
+	SPECIAL_CODE_ABILITY_NAME,
+	SPECIAL_CODE_EVENT_ABILITY_NAME,
+	SPECIAL_CODE_PARTY_MEMBER_NAME_BY_ID,
+	SPECIAL_CODE_PARTY_MEMBER_NAME,
+	SPECIAL_CODE_EVENT_STRING,
+	SPECIAL_CODE_HEADING,
+	SPECIAL_CODE_ABILITY_MODIFIERS,
+	SPECIAL_CODE_PLAYER_GENDER,
+	SPECIAL_CODE_ABILITY_PLURAL_SELECT,
+	SPECIAL_CODE_NPC_PLURAL_SELECT,
+	SPECIAL_CODE_NPC_PROPER_SELECT,
+	SPECIAL_CODE_ABILITY_NAME2,
+	SPECIAL_CODE_NPC0_GENDER,
+	SPECIAL_CODE_NPC1_GENDER,
+	SPECIAL_CODE_PLURAL_SELECT,
+	SPECIAL_CODE_SPECIAL_NAME,
+	SPECIAL_CODE_TWO_DIGIT_VALUE,
+	SPECIAL_CODE_HEX_VALUE,
+	SPECIAL_CODE_BINARY_VALUE,
+	SPECIAL_CODE_ACTION_HEX_VALUE,
 
-	NEWLINE,
+	SPECIAL_CODE_NEWLINE,
 };
 
-#define MakeSpecial(code, bytes) (-((bytes << 16) | code))
+#define MakeSpecial(code, bytes) (-((bytes << 16) | SPECIAL_CODE_##code))
 
 #define Unknown MakeSpecial(UNKNOWN, 0)
 #define Unknown1 MakeSpecial(UNKNOWN, 1)
@@ -100,7 +100,7 @@ static const int ShiftJISEventTable[] = {
 	0x0000, // 0x01
 	SetX, // 0x02
 	SetY, // 0x03
-	0x0000, // 0x04
+	Unknown1, // 0x04 // ***For compat with older versions.***
 	SkillText, // 0x05
 	0x0000, // 0x06
 	UnknownChar, // 0x07
@@ -110,7 +110,7 @@ static const int ShiftJISEventTable[] = {
 	UnknownChar, // 0x0B
 	IndexParam, // 0x0C
 	SoundEffect, // 0x0D
-	EventSoundEffect, // 0x0E
+	0x0000, // ### // EventSoundEffect, // 0x0E // *** used to mean something else long ago, no parameters
 	0x0000, // 0x0F
 	SpellName, // 0x10
 	EventSpellName, // 0x11
@@ -32738,14 +32738,14 @@ static const int ShiftJISEventTable[] = {
 	Unknown, // 0x7F7F
 	Unknown1, // 0x7F80
 	Unknown1, // 0x7F81
-	Unknown, // 0x7F82
-	Unknown, // 0x7F83
+	Unknown1, // 0x7F82 // ***For compat with older versions.***
+	Unknown1, // 0x7F83 // ***For compat with older versions.***
 	AbilityModifiers, // 0x7F84
 	PlayerGender, // 0x7F85
 	AbilityPluralSelect, // 0x7F86
 	NpcPluralSelect, // 0x7F87
 	NpcProperSelect, // 0x7F88
-	Unknown, // 0x7F89
+	Unknown1, // 0x7F89 // ***For compat with older versions.***
 	Unknown, // 0x7F8A
 	Unknown, // 0x7F8B
 	Unknown, // 0x7F8C
@@ -65893,6 +65893,41 @@ static const int ShiftJISEventBytes[] = {
 	2, // 0xFF
 };
 
+uint32_t GetEventMessageSize(const uint8_t* rawMessage, uint32_t rawMessageSize, uint8_t mask) {
+
+    for (uint32_t i = 0; i < rawMessageSize;) {
+        uint16_t b = rawMessage[i] ^ mask;
+
+        uint32_t byteLength = ShiftJISEventBytes[b];
+
+        if (byteLength > 1) {
+            if ((i+1) < rawMessageSize) {
+                b = (b << 8) | (rawMessage[i+1] ^ mask);
+            } else {
+                // Truncated.
+                return i;
+            }
+        }
+
+	    int code = ShiftJISEventTable[b];
+
+		if (code <= 0) {
+			uint32_t paramLength = (-code) >> 16;
+			uint32_t type = (-code) & 0xFFFF;
+
+			i += byteLength + paramLength;
+
+			if (type == SPECIAL_CODE_NUL) {
+				return i;
+			}
+		} else {
+			i += byteLength;
+		}
+	}
+
+	return rawMessageSize;
+}
+
 static void OutputBytes(char** ppMsg, const uint8_t* rawMessage, uint32_t* pI, uint32_t rawMessageSize, uint32_t byteLength) {
     char* pMsg = *ppMsg;
     uint32_t i = *pI;
@@ -65943,11 +65978,17 @@ static void OutputUTF8(int code, char** ppMsg, const uint8_t* rawMessage, uint32
     *pI += byteLength;
 }
 
-static void OutputSpecial(int code, char** ppMsg, const uint8_t* rawMessage, uint32_t* pI, uint32_t rawMessageSize, uint32_t byteLength) {
+static int OutputSpecial(int code, char** ppMsg, const uint8_t* rawMessage, uint32_t* pI, uint32_t rawMessageSize, uint32_t byteLength) {
     uint32_t paramLength = (-code) >> 16;
     uint32_t type = (-code) & 0xFFFF;
 
+	if (type == SPECIAL_CODE_NUL) {
+		return 1;
+	}
+
     OutputBytes(ppMsg, rawMessage, pI, rawMessageSize, byteLength + paramLength);
+
+	return 0;
 }
 
 const char* GetPrintableText(const uint8_t* rawMessage, uint32_t rawMessageSize) {
@@ -65972,7 +66013,10 @@ const char* GetPrintableText(const uint8_t* rawMessage, uint32_t rawMessageSize)
         int code = ShiftJISEventTable[b];
 
         if (code <= 0) {
-            OutputSpecial(code, &pMsg, rawMessage, &i, rawMessageSize, byteLength);
+            int end = OutputSpecial(code, &pMsg, rawMessage, &i, rawMessageSize, byteLength);
+			if (end) {
+				break;
+			}
         } else {
             // Convert to UTF-8
             OutputUTF8(code, &pMsg, rawMessage, &i, rawMessageSize, byteLength);
