@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <inttypes.h>
 
@@ -65978,16 +65979,91 @@ static void OutputUTF8(int code, char** ppMsg, const uint8_t* rawMessage, uint32
     *pI += byteLength;
 }
 
+static int EmitString(char **ppMsg, const char* format, ...) {
+	va_list argp;
+	va_start(argp, format);
+
+	*ppMsg += vsprintf(*ppMsg, format, argp);
+
+	va_end(argp);
+
+	return 0;
+}
+
 static int OutputSpecial(int code, char** ppMsg, const uint8_t* rawMessage, uint32_t* pI, uint32_t rawMessageSize, uint32_t byteLength) {
     uint32_t paramLength = (-code) >> 16;
-    uint32_t type = (-code) & 0xFFFF;
+    enum SpecialCode type = (enum SpecialCode)((-code) & 0xFFFF);
 
-	if (type == SPECIAL_CODE_NUL) {
-		return 1;
+	#define EMIT_BYTES() { \
+		OutputBytes(ppMsg, rawMessage, pI, rawMessageSize, byteLength + paramLength); \
+		return 0; \
 	}
 
-    OutputBytes(ppMsg, rawMessage, pI, rawMessageSize, byteLength + paramLength);
+	#define EMIT_STRING(...) { \
+		EmitString(ppMsg, __VA_ARGS__); \
+		\
+	}
 
+	switch (type) {
+		case SPECIAL_CODE_UNKNOWN:
+			EMIT_BYTES();
+		case SPECIAL_CODE_UNKNOWN_CHAR:
+			EMIT_STRING("\\x%02x", rawMessage[*pI]);
+			break;
+		case SPECIAL_CODE_NUL:
+			return 1;
+		case SPECIAL_CODE_SET_X:
+		case SPECIAL_CODE_SET_Y:
+		case SPECIAL_CODE_SKILL_TEXT:
+			EMIT_BYTES();
+			break;
+		case SPECIAL_CODE_PLAYER_NAME:
+			EMIT_STRING("{player}");
+			break;
+		case SPECIAL_CODE_NPC_NAME:
+			EMIT_BYTES();
+		case SPECIAL_CODE_VALUE:
+			// event parameter
+			EMIT_STRING("{e:%u}", rawMessage[*pI + 1]);
+			break;
+		case SPECIAL_CODE_INDEX:
+			// event parameter
+			EMIT_STRING("{e:%u:select}", rawMessage[*pI + 1]);
+			break;
+		case SPECIAL_CODE_SOUND_EFFECT:
+		case SPECIAL_CODE_EVENT_SOUND_EFFECT:
+		case SPECIAL_CODE_SPELL_NAME:
+		case SPECIAL_CODE_EVENT_SPELL_NAME:
+		case SPECIAL_CODE_NUMBER:
+		case SPECIAL_CODE_TIME:
+		case SPECIAL_CODE_ABILITY_NAME:
+		case SPECIAL_CODE_EVENT_ABILITY_NAME:
+		case SPECIAL_CODE_PARTY_MEMBER_NAME_BY_ID:
+		case SPECIAL_CODE_PARTY_MEMBER_NAME:
+		case SPECIAL_CODE_EVENT_STRING:
+		case SPECIAL_CODE_HEADING:
+		case SPECIAL_CODE_ABILITY_MODIFIERS:
+		case SPECIAL_CODE_PLAYER_GENDER:
+		case SPECIAL_CODE_ABILITY_PLURAL_SELECT:
+		case SPECIAL_CODE_NPC_PLURAL_SELECT:
+		case SPECIAL_CODE_NPC_PROPER_SELECT:
+		case SPECIAL_CODE_ABILITY_NAME2:
+		case SPECIAL_CODE_NPC0_GENDER:
+		case SPECIAL_CODE_NPC1_GENDER:
+		case SPECIAL_CODE_PLURAL_SELECT:
+		case SPECIAL_CODE_SPECIAL_NAME:
+		case SPECIAL_CODE_TWO_DIGIT_VALUE:
+		case SPECIAL_CODE_HEX_VALUE:
+		case SPECIAL_CODE_BINARY_VALUE:
+		case SPECIAL_CODE_ACTION_HEX_VALUE:
+			EMIT_BYTES();
+			break;
+		case SPECIAL_CODE_NEWLINE:
+			EMIT_STRING("\\n");
+			break;
+	}
+
+	*pI += byteLength + paramLength;
 	return 0;
 }
 
