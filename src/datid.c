@@ -125,7 +125,7 @@ static const int BaseFileIds[][110] = {
     }
 };
 
-static int GetBaseFileId(int languageId, int index) {
+int GetBaseFileId(int languageId, int index) {
     return BaseFileIds[languageId][index];
 }
 
