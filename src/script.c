@@ -847,8 +847,8 @@ static void Opcode37(struct vm_t* vm) {
 }
 
 static void Opcode38(struct vm_t* vm) {
-    printf("Opcode38 %s\n",
-        getVar16Name(vm, 1));
+    printf("SETEVENTFLAGS %s\n",
+        getVar16NameWithFlags(vm, 1, VAR_FLAGS_HEX));
 
     vm->pc += 3;
 }
@@ -1508,7 +1508,7 @@ static void Opcode6D(struct vm_t* vm) {
 }
 
 static void Opcode6E(struct vm_t* vm) {
-    printf("Opcode6E %s, %s\n",
+    printf("EMOTE %s, %s\n",
         getVar32Name(vm, 1),
         getVar16Name(vm, 5));
 
@@ -1720,7 +1720,9 @@ static void Opcode76(struct vm_t* vm) {
 }
 
 static void Opcode77(struct vm_t* vm) {
-    printf("Opcode77 %s, %s\n",
+    // Not quite...?
+    // Needs more investigation
+    printf("SETWEATHER0 %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3));
 
@@ -1728,7 +1730,7 @@ static void Opcode77(struct vm_t* vm) {
 }
 
 static void Opcode78(struct vm_t* vm) {
-    printf("Opcode78\n");
+    printf("RESETWEATHER\n");
 
     vm->pc += 1;
 }
@@ -1932,7 +1934,7 @@ static void Opcode86(struct vm_t* vm) {
 
 static void Opcode87(struct vm_t* vm) {
     // 0 - world pass
-    // 1 - wait?
+    // 1 - wait
     // 2 - gold world pass
     printf("WORLDPASS %02x\n",
         getImm8(vm, 1));
@@ -1942,7 +1944,7 @@ static void Opcode87(struct vm_t* vm) {
 
 static void Opcode88(struct vm_t* vm) {
     // 0 - world pass
-    // 1 - wait?
+    // 1 - wait
     // 2 - gold world pass
     printf("WORLDPASSPURCHASE %02x\n",
         getImm8(vm, 1));
@@ -2652,22 +2654,19 @@ static void OpcodeAE(struct vm_t* vm) {
     uint32_t param = getImm8(vm, 1);
 
     if (param == 0) {
-        printf("OpcodeAE %02x, %s, %s\n",
-            param,
+        printf("SETWEATHER %s, %s\n",
             getVar16Name(vm, 2),
             getVar16Name(vm, 4));
         vm->pc += 6;
     } else if (param == 1) {
-        printf("OpcodeAE %02x, %s, %s\n",
-            param,
+        printf("SETNAMECOLOR %s, %s\n",
             getVar32Name(vm, 2),
             getVar16Name(vm, 6));
         vm->pc += 8;
     } else if (param == 2) {
-        printf("OpcodeAE %02x, %s\n",
-            param,
+        printf("RESETNAMECOLOR %s\n",
             getVar32Name(vm, 2));
-        // not a typo, last two bytes are ignored
+        // last two bytes are ignored
         vm->pc += 8;
     } else if (param == 3) {
         printf("OpcodeAE %02x, %s, %s\n",
@@ -2676,10 +2675,10 @@ static void OpcodeAE(struct vm_t* vm) {
             getVar16Name(vm, 6));
         vm->pc += 8;
     } else if (param == 4) {
-        printf("OpcodeAE %02x, %s, %s\n",
+        printf("OpcodeAE %02x, %s\n",
             param,
-            getVar32Name(vm, 2),
-            getVar16Name(vm, 6));
+            getVar32Name(vm, 2));
+        // last two bytes are ignored
         vm->pc += 8;
     } else if (param == 5) {
         printf("OpcodeAE %02x, %s, %s\n",
