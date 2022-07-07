@@ -611,7 +611,7 @@ static void Opcode1F(struct vm_t* vm) {
 }
 
 static void Opcode20(struct vm_t* vm) {
-    printf("Opcode20 %02x\n",
+    printf("BLOCKMENU %02x\n",
         lsb8(vm->code, vm->pc, 1));
 
     vm->pc += 2;
