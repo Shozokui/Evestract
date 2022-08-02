@@ -813,16 +813,15 @@ static void Opcode33(struct vm_t* vm) {
 
 static void Opcode34(struct vm_t* vm) {
     // Loads a zone.
-    printf("Opcode34 %s\n",
+    printf("LOADZONE %s\n",
         getVar16Name(vm, 1));
     vm->pc += 3;
 }
 
 static void Opcode35(struct vm_t* vm) {
-    // Loads a zone, slightly different from Opcode34 in an unknown way.
-    printf("Opcode35 %s\n",
+    // Loads a zone.
+    printf("LOADZONE2 %s\n",
         getVar16Name(vm, 1));
-
     vm->pc += 3;
 }
 
@@ -861,10 +860,9 @@ static void Opcode39(struct vm_t* vm) {
 }
 
 static void Opcode3A(struct vm_t* vm) {
-    printf("Opcode3A %s, %s\n",
+    printf("GETROTATION %s, %s\n",
         getVar32Name(vm, 1),
         getVar16Name(vm, 5));
-
     vm->pc += 7;
 }
 
@@ -3051,29 +3049,29 @@ static void OpcodeB5(struct vm_t* vm) {
 }
 
 static void OpcodeB6(struct vm_t* vm) {
+    // Appearance-related opcodes.
+    // Todo - figure out what the later opcodes are doing.
     uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
-        printf("OpcodeB6 %02x, %s\n",
-            param,
+        printf("SETMODELID %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else if (param == 1) {
-         printf("OpcodeB6 %02x, %s\n",
-            param,
+         printf("SETRACE %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else if (param >= 2 && param <= 10) {
-        printf("OpcodeB6 %02x, %s\n",
-            param,
+        printf("SETAPPEARANCEBYINDEX %d, %s\n",
+            param - 2,
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else if (param == 11) {
-        printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s, %s, %s, %s\n",
-            param,
+        // Race + Appearance
+        printf("SETAPPERANCE %s, %s, %s, %s, %s, %s, %s, %s, %s\n",
             getVar16Name(vm, 2),
             getVar16Name(vm, 4),
             getVar16Name(vm, 6),
@@ -3086,12 +3084,13 @@ static void OpcodeB6(struct vm_t* vm) {
 
         vm->pc += 20;
     } else if (param == 12) {
-        printf("OpcodeB6 %02x, %s\n",
-            param,
+        // todo - verify name
+        printf("SETCHOCOBO %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
     } else if (param == 13) {
+        // ???
         printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s\n",
             param,
             getVar16Name(vm, 2),
@@ -3103,6 +3102,7 @@ static void OpcodeB6(struct vm_t* vm) {
 
         vm->pc += 14;
     } else if (param == 14) {
+        // ???
         printf("OpcodeB6 %02x, %s, %s, %s, %s, %s, %s, %s\n",
             param,
             getVar16Name(vm, 2),
@@ -3115,8 +3115,8 @@ static void OpcodeB6(struct vm_t* vm) {
 
         vm->pc += 16;
     } else if (param == 15) {
-        printf("OpcodeB6 %02x, %s\n",
-            param,
+        // todo - float * 0.01
+        printf("SETMODELSIZE %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
