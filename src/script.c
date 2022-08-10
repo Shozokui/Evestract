@@ -773,7 +773,7 @@ static void Opcode2F(struct vm_t* vm) {
 }
 
 static void Opcode30(struct vm_t* vm) {
-    printf("Opcode30\n");
+    printf("REMAINBLOCKED\n");
 
     vm->pc += 1;
 }
