@@ -32762,7 +32762,7 @@ static const int ShiftJISEventTable[] = {
 	BinaryValue, // 0x7F96
 	ActionHexValue, // 0x7F97
 	Unknown, // 0x7F98
-	Unknown, // 0x7F99
+	Unknown1, // 0x7F99
 	Unknown, // 0x7F9A
 	Unknown, // 0x7F9B
 	Unknown, // 0x7F9C
