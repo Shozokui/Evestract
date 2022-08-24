@@ -2,11 +2,11 @@
 #define BYTES_H
 
 static inline float i2f(uint32_t i) {
-    union {
+    union p {
         uint32_t i;
         float f;
-    } x = { i = i };
-    return x.f;
+    };
+    return ((union p){ .i = i }).f;
 }
 
 #define GET_VARARGS_MACRO3(_1, _2, _3, MACRO_NAME, ...) MACRO_NAME
@@ -41,14 +41,14 @@ static inline float i2f(uint32_t i) {
 
 #define msb32_bi(x, b, o)  ((uint32_t)(((x)+(b)+(o))[3] | (((x)+(b)+(o))[2] << 8) | (((x)+(b)+(o))[1] << 16) | (((x)+(b)+(o))[0] << 24)))
 
-#define ptr8(...)          GET_VARARGS_MACRO3(__VA_ARGS__, ptr8_bi, ptr8_i, ptr8_)(__VA_ARGS__)
-#define cptr8(...)         GET_VARARGS_MACRO3(__VA_ARGS__, cptr8_bi, cptr8_i, cptr8_)(__VA_ARGS__)
-#define lsb8(...)          GET_VARARGS_MACRO3(__VA_ARGS__, lsb8_bi, lsb8_i, lsb8_)(__VA_ARGS__)
-#define lsb16(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb16_bi, lsb16_i, lsb16_)(__VA_ARGS__)
-#define lsb24(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb24_bi, lsb24_i, lsb24_)(__VA_ARGS__)
-#define lsb32(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb32_bi, lsb32_i, lsb32_)(__VA_ARGS__)
-#define lsbf32(...)        GET_VARARGS_MACRO3(__VA_ARGS__, lsbf32_bi, lsbf32_i, lsbf32_)(__VA_ARGS__)
+#define ptr8(...)          GET_VARARGS_MACRO3(__VA_ARGS__, ptr8_bi, ptr8_i, ptr8_, nothing)(__VA_ARGS__)
+#define cptr8(...)         GET_VARARGS_MACRO3(__VA_ARGS__, cptr8_bi, cptr8_i, cptr8_, nothing)(__VA_ARGS__)
+#define lsb8(...)          GET_VARARGS_MACRO3(__VA_ARGS__, lsb8_bi, lsb8_i, lsb8_, nothing)(__VA_ARGS__)
+#define lsb16(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb16_bi, lsb16_i, lsb16_, nothing)(__VA_ARGS__)
+#define lsb24(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb24_bi, lsb24_i, lsb24_, nothing)(__VA_ARGS__)
+#define lsb32(...)         GET_VARARGS_MACRO3(__VA_ARGS__, lsb32_bi, lsb32_i, lsb32_, nothing)(__VA_ARGS__)
+#define lsbf32(...)        GET_VARARGS_MACRO3(__VA_ARGS__, lsbf32_bi, lsbf32_i, lsbf32_, nothing)(__VA_ARGS__)
 
-#define msb32(...)         GET_VARARGS_MACRO3(__VA_ARGS__, msb32_bi, msb32_i, msb32_)(__VA_ARGS__)
+#define msb32(...)         GET_VARARGS_MACRO3(__VA_ARGS__, msb32_bi, msb32_i, msb32_, nothing)(__VA_ARGS__)
 
 #endif
