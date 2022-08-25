@@ -306,7 +306,7 @@ static const char* getEventLabelByAddrAndIndex(struct vm_t* vm, uint32_t addr, u
 
 static const char* getVar16Message(const struct vm_t* vm, uint32_t off) {
     if (vm->dialog != NULL) {
-        uint16_t addr = lsb16(vm->code, vm->pc, off);
+        uint32_t addr = lsb16(vm->code, vm->pc, off);
 
         if (addr >= 0x8000 && (addr - 0x8000) < vm->numConstants) {
             uint32_t constant = vm->constants[addr - 0x8000];
@@ -346,7 +346,7 @@ static void Opcode02(struct vm_t* vm) {
 
     // These may be backwards!
     // Need to redo in a more-intuitive syntax.
-    switch (lsb8(vm->code, vm->pc, 5) & 0x0f) {
+    switch (param & 0x0f) {
         case 0:
             Op = "!=";
             break;
@@ -946,12 +946,12 @@ static void Opcode41(struct vm_t* vm) {
         getVar16Name(vm, 1),
         getVar16Name(vm, 3));
     vm->pc += 9;
-};
+}
 
 static void Opcode42(struct vm_t* vm) {
     printf("Opcode42\n");
     vm->pc += 1;
-};
+}
 
 static void Opcode43(struct vm_t* vm) {
     uint8_t param = getImm8(vm, 1);
@@ -1274,7 +1274,7 @@ static void Opcode5B(struct vm_t* vm) {
 static void Opcode5C(struct vm_t* vm) {
     uint32_t param = getImm8(vm, 1);
 
-    if (param >= 0 && param <= 7) {
+    if (param <= 7) {
         printf("Opcode5C %02x, %s\n",
             param,
             getVar16Name(vm, 2));
