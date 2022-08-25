@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < ftable->length; i++) {
+    for (uint32_t i = 0; i < ftable->length; i++) {
         char filename[256];
         ret = GetDatPath(ftable, filename, 65536, NULL, i);
         printf("%d,%s\n", i, filename);
