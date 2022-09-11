@@ -344,7 +344,6 @@ static void Opcode02(struct vm_t* vm) {
 
     const char* Op = "<#>";
 
-    // These may be backwards!
     // Need to redo in a more-intuitive syntax.
     switch (param & 0x0f) {
         case 0:
@@ -361,19 +360,29 @@ static void Opcode02(struct vm_t* vm) {
             Op = ">=";
             break;
         case 4:
-            Op = ">";
-            break;
-        case 5:
             Op = "<";
             break;
+        case 5:
+            Op = ">";
+            break;
+
+        // NOT CURRENTLY USED
         case 6:
         case 9:
+            // (A & B) == 0
+            // no common bits
+            // Was once used in an old Doll Festival event that no longer exists.
             Op = "!&";
             break;
         case 8:
+            // (A | B) == 0
+            // both parameters have to be zero
+            // No known uses.
             Op = "!|";
             break;
         case 10:
+            // (A & ~B) == 0
+            // No known uses.
             Op = "~!&";
             break;
         default:
@@ -423,6 +432,7 @@ static void Opcode07(struct vm_t* vm) {
 }
 
 static void Opcode08(struct vm_t* vm) {
+    // SUB X, Y -> X = X - Y
     printf("SUB %s, %s\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3));
@@ -1529,16 +1539,13 @@ static void Opcode71(struct vm_t* vm) {
     uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
-        printf("Opcode71 %02x\n",
-            param);
+        printf("UPDATEEVENTSTRING WAITFORINPUT\n");
         vm->pc += 2;
     } else if (param == 1) {
-        printf("Opcode71 %02x\n",
-            param);
+        printf("UPDATEEVENTSTRING\n");
         vm->pc += 2;
     } else if (param == 2) {
-        printf("Opcode71 %02x\n",
-            param);
+        printf("UPDATEEVENTSTRING WAIT\n");
         vm->pc += 2;
     } else if (param == 3) {
         printf("Opcode71 %02x, %s\n",
