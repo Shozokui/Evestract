@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     }
 
     const int items[] = { 39, 40, 41, 42, 43, 51, 52, 53 };
-    for (int n = 0; n < sizeof(items)/sizeof(items[0]); n++) {
+    for (size_t n = 0; n < sizeof(items)/sizeof(items[0]); n++) {
         char filename[65536];
 
         int i = items[n];
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
     }
 
     const int battle_messages[] = { 100, 102, 103 };
-    for (int n = 0; n < sizeof(battle_messages)/sizeof(battle_messages[0]); n++) {
+    for (size_t n = 0; n < sizeof(battle_messages)/sizeof(battle_messages[0]); n++) {
         char filename[65536];
 
         int i = battle_messages[n];
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
     }
 
     const int menus[] = { 89 };
-    for (int n = 0; n < sizeof(menus)/sizeof(menus[0]); n++) {
+    for (size_t n = 0; n < sizeof(menus)/sizeof(menus[0]); n++) {
         char filename[65536];
 
         int i = menus[n];
@@ -177,7 +177,7 @@ int main(int argc, char* argv[]) {
     }
 
     const int dmsg[] = { 92, 94 };
-    for (int n = 0; n < sizeof(dmsg)/sizeof(dmsg[0]); n++) {
+    for (size_t n = 0; n < sizeof(dmsg)/sizeof(dmsg[0]); n++) {
         char filename[65536];
 
         int i = dmsg[n];
@@ -193,6 +193,19 @@ int main(int argc, char* argv[]) {
         ret = GetDatPath(ftable, filename, sizeof(filename), NULL, fileId);
         if (ret > 0) {
             printf("# dmsg_en:%u, file_id:%u\n", i, fileId);
+            printf("%s\n", filename);
+        }
+    }
+
+    const int merit[] = { 88, 89 };
+    for (size_t n = 0; n < sizeof(merit)/sizeof(merit[0]); n++) {
+        char filename[65536];
+
+        int fileId = merit[n];
+
+        ret = GetDatPath(ftable, filename, sizeof(filename), NULL, fileId);
+        if (ret > 0) {
+            printf("# merit:%u, file_id:%u\n", fileId, fileId);
             printf("%s\n", filename);
         }
     }
