@@ -2,7 +2,7 @@
 
 #include "datid.h"
 
-static const int BaseFileIds[][110] = {
+static const int BaseFileIds[MAX_LANGUAGES_OLD][MAX_LOCALIZED_RESOURCES + 1] = {
     {
         0x9A6C,0x9A6D,0xD8AD,0xD8AE, // 0
         0xD8AB,0x2D,0xD8E5,0xD8E6, // 4

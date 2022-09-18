@@ -17,4 +17,5 @@ add_executable(npc src/npcmain.c src/readfile.c src/ftable.c src/datid.c src/tex
 add_executable(dialog src/dialogmain.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c)
 add_executable(ftable src/ftablemain.c src/readfile.c src/ftable.c)
 
+add_executable(locresources src/utils/locresources.c src/readfile.c src/ftable.c src/datid.c)
 add_executable(pivotable src/pivotable.c src/readfile.c src/ftable.c src/datid.c)
