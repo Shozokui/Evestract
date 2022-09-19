@@ -8,12 +8,15 @@
 #include "readfile.h"
 
 #include "parser.h"
+#include "resource.h"
 
 static bool menuChunkFilter(const chunk_t* chunk) {
     switch (chunk->type) {
+        case CHUNK_TYPE_Bmp2:
+        case CHUNK_TYPE_D3s:
         case CHUNK_TYPE_Meb:
-            return true;
         case CHUNK_TYPE_Msb:
+        case CHUNK_TYPE_Bp:
             return true;
 
         default:
@@ -26,6 +29,11 @@ static int menuChunkParser(const chunk_t* chunk) {
     int ret = 0;
 
     switch (chunk->type) {
+        case CHUNK_TYPE_Bmp2:
+        case CHUNK_TYPE_D3s:
+        case CHUNK_TYPE_Bp:
+            ret = parseBmp2(chunk);
+            break;
         case CHUNK_TYPE_Meb:
             ret = parseMeb(chunk);
             break;

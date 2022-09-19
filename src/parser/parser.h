@@ -6,6 +6,7 @@
 
 #include "resource.h"
 
+#include "parsers/bmp2.h"
 #include "parsers/meb.h"
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"

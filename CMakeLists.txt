@@ -19,6 +19,8 @@ set(RESOURCEDIR ${BYTESDIR} src/resource)
 
 set(PARSERLIB ${RESOURCELIB} src/parser/parser.c
                              src/parser/parser.h
+                             src/parser/parsers/bmp2.c
+                             src/parser/parsers/bmp2.h
                              src/parser/parsers/meb.c
                              src/parser/parsers/meb.h
                              src/parser/parsers/msb.c
