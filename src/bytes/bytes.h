@@ -1,7 +1,9 @@
-#ifndef BYTES_H
-#define BYTES_H
+#ifndef BYTES__BYTES_H
+#define BYTES__BYTES_H
 
-static inline float i2f(uint32_t i) {
+#include <inttypes.h>
+
+[[maybe_unused]] static inline float i2f(uint32_t i) {
     union p {
         uint32_t i;
         float f;

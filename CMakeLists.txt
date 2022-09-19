@@ -11,12 +11,42 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic -W)
 endif()
 
-add_executable(Evestract src/main.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c src/event.c src/npc.c src/script.c src/firstpass.c)
-add_executable(schedgen src/schedgen.c src/readfile.c src/ftable.c)
-add_executable(mebmsb src/mebmsb.c src/readfile.c src/ftable.c)
-add_executable(npc src/npcmain.c src/readfile.c src/ftable.c src/datid.c src/text.c src/npc.c)
-add_executable(dialog src/dialogmain.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c)
-add_executable(ftable src/ftablemain.c src/readfile.c src/ftable.c)
+set(BYTESLIB src/bytes/bytes.h)
+set(BYTESDIR src/bytes)
 
-add_executable(locresources src/utils/locresources.c src/readfile.c src/ftable.c src/datid.c)
-add_executable(pivotable src/pivotable.c src/readfile.c src/ftable.c src/datid.c)
+set(RESOURCELIB ${BYTESLIB} src/resource/resource.c src/resource/resource.h)
+set(RESOURCEDIR ${BYTESDIR} src/resource)
+
+set(PARSERLIB ${RESOURCELIB} src/parser/parser.c
+                             src/parser/parser.h
+                             src/parser/parsers/meb.c
+                             src/parser/parsers/meb.h
+                             src/parser/parsers/msb.c
+                             src/parser/parsers/msb.h
+                             src/parser/parsers/scheduler.c
+                             src/parser/parsers/scheduler.h)
+set(PARSERDIR ${RESOURCEDIR} src/parser)
+
+add_executable(Evestract ${BYTESLIB} src/main.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c src/event.c src/npc.c src/script.c src/firstpass.c)
+target_include_directories(Evestract PRIVATE ${BYTESDIR})
+
+add_executable(schedgen ${PARSERLIB} src/schedgen.c src/readfile.c src/ftable.c)
+target_include_directories(schedgen PRIVATE ${PARSERDIR})
+
+add_executable(mebmsb ${PARSERLIB} src/mebmsb.c src/readfile.c src/ftable.c)
+target_include_directories(mebmsb PRIVATE ${PARSERDIR})
+
+add_executable(npc ${BYTESLIB} src/npcmain.c src/readfile.c src/ftable.c src/datid.c src/text.c src/npc.c)
+target_include_directories(npc PRIVATE ${BYTESDIR})
+
+add_executable(dialog ${BYTESLIB} src/dialogmain.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c)
+target_include_directories(dialog PRIVATE ${BYTESDIR})
+
+add_executable(ftable ${BYTESLIB} src/ftablemain.c src/readfile.c src/ftable.c)
+target_include_directories(ftable PRIVATE ${BYTESDIR})
+
+add_executable(locresources ${BYTESLIB} src/utils/locresources.c src/readfile.c src/ftable.c src/datid.c)
+target_include_directories(locresources PRIVATE ${BYTESDIR})
+
+add_executable(pivotable ${BYTESLIB} src/pivotable.c src/readfile.c src/ftable.c src/datid.c)
+target_include_directories(pivotable PRIVATE ${BYTESDIR})
