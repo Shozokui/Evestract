@@ -52,58 +52,63 @@ int parseMsb(const chunk_t* chunk) {
             printf("\t\t\tSubChild %d:\n", j);
 
             // upper-left
-            int x0 = lsb16(buf, offset + 0);
-            int y0 = lsb16(buf, offset + 2);
+            int x0 = slsb16(buf, offset + 0);
+            int y0 = slsb16(buf, offset + 2);
 
             // upper-right
-            int x1 = lsb16(buf, offset + 4);
-            int y1 = lsb16(buf, offset + 6);
+            int x1 = slsb16(buf, offset + 4);
+            int y1 = slsb16(buf, offset + 6);
 
             // lower-left
-            int x2 = lsb16(buf, offset + 8);
-            int y2 = lsb16(buf, offset + 10);
+            int x2 = slsb16(buf, offset + 8);
+            int y2 = slsb16(buf, offset + 10);
 
             // lower-right
-            int x3 = lsb16(buf, offset + 12);
-            int y3 = lsb16(buf, offset + 14);
+            int x3 = slsb16(buf, offset + 12);
+            int y3 = slsb16(buf, offset + 14);
 
             offset += 16;
 
             printf("\t\t\t\tX,Y: (%d, %d) (%d, %d) (%d, %d) (%d, %d)\n", x0, y0, x1, y1, x2, y2, x3, y3);
 
-            int _0 = lsb16(buf, offset + 0);
-            int _1 = lsb16(buf, offset + 2);
-            int _2 = lsb16(buf, offset + 4);
-            int _3 = lsb16(buf, offset + 6);
+            int uw = slsb16(buf, offset + 0);
+            int vh = slsb16(buf, offset + 2);
+            int u0 = slsb16(buf, offset + 4);
+            int v0 = slsb16(buf, offset + 6);
+
+            int u1 = u0 + uw;
+            int v1 = v0 + vh;
 
             offset += 8;
 
-            printf("\t\t\t\t%d %d %d %d\n", _0, _1, _2, _3);
+            printf("\t\t\t\tU,V: (%d, %d) (%d, %d)\n", u0, v0, u1, v1);
 
-            _0 = lsb8(buf, offset);
+            int UVFlags = lsb8(buf, offset);
             offset += 1;
 
-            printf("\t\t\t\t%d\n", _0);
+            // U flipped if UVFlags & 1
+            // V flipped if UVFlags & 2
+            printf("\t\t\t\tUVFlags: %02x\n", UVFlags);
 
             for (int x = 0; x < 4; x++) {
-                int _0 = lsb8(buf, offset + 0);
-                int _1 = lsb8(buf, offset + 1);
-                int _2 = lsb8(buf, offset + 2);
-                int _3 = lsb8(buf, offset + 3);
+                int r = lsb8(buf, offset + 0);
+                int g = lsb8(buf, offset + 1);
+                int b = lsb8(buf, offset + 2);
+                int a = lsb8(buf, offset + 3);
 
                 offset += 4;
 
-                printf("\t\t\t\t%d %d %d %d\n", _0, _1, _2, _3);
+                printf("\t\t\t\tC%d: #%02x%02x%02x%02x\n", x, r, g, b, a);
             }
 
-            _0 = lsb8(buf, offset + 0);
-            _1 = lsb8(buf, offset + 1);
-            _2 = lsb8(buf, offset + 2);
-            _3 = lsb8(buf, offset + 3);
+            int Blend0 = lsb8(buf, offset + 0);
+            int Blend1 = lsb8(buf, offset + 1);
+            int Blend2 = lsb8(buf, offset + 2);
+            int Blend3 = lsb8(buf, offset + 3);
 
             offset += 4;
 
-            printf("\t\t\t\t%d %d %d %d\n", _0, _1, _2, _3);
+            printf("\t\t\t\tBlendMode: %d, %d, %d, %d\n", Blend0, Blend1, Blend2, Blend3);
 
             char name[17];
             strncpy(name, (const char*) &buf[offset], 16);
