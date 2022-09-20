@@ -85,6 +85,7 @@ int parseChunks(const uint8_t* datBuf, uint32_t datLen, parse_chunk_userdata_t* 
     int ret = LoadChunkedResource(datBuf, datLen, &parseChunk, &(parse_chunk_userdata_t) {
         .filter = userData->filter,
         .parser = userData->parser,
+        .userData = userData->userData,
 
         .stackIndex = -1,
     });
