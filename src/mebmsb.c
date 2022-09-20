@@ -10,7 +10,7 @@
 #include "parser.h"
 #include "resource.h"
 
-static bool menuChunkFilter(const chunk_t* chunk) {
+static bool menuChunkFilter(const chunk_t* chunk, [[maybe_unused]] void* userData) {
     switch (chunk->type) {
         case CHUNK_TYPE_Bmp2:
         case CHUNK_TYPE_D3s:
@@ -24,7 +24,7 @@ static bool menuChunkFilter(const chunk_t* chunk) {
     }
 }
 
-static int menuChunkParser(const chunk_t* chunk) {
+static int menuChunkParser(const chunk_t* chunk, [[maybe_unused]] void* userData) {
 
     int ret = 0;
 
@@ -93,6 +93,7 @@ int main(int argc, char* argv[]) {
     int ret = parseChunks(datBuf, datLen, &(parse_chunk_userdata_t) {
         .filter = menuChunkFilter,
         .parser = menuChunkParser,
+        .userData = NULL,
     });
 
     if (ret < 0) {

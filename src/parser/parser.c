@@ -44,7 +44,7 @@ static int parseChunk(const chunk_t* chunk, void* _userData) {
 
         bool wanted = true;
         if (userData->filter != NULL) {
-            wanted = userData->filter(chunk);
+            wanted = userData->filter(chunk, userData->userData);
         }
 
         if (wanted) {
@@ -67,7 +67,7 @@ static int parseChunk(const chunk_t* chunk, void* _userData) {
             }
 
             if (userData->parser != NULL) {
-                int ret = userData->parser(chunk);
+                int ret = userData->parser(chunk, userData->userData);
                 if (ret < 0) {
                     return ret;
                 }

@@ -11,13 +11,14 @@
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"
 
-typedef bool (parse_chunk_filter_func)(const chunk_t* chunk);
-typedef int (parse_chunk_func)(const chunk_t* chunk);
+typedef bool (parse_chunk_filter_func)(const chunk_t* chunk, void* userData);
+typedef int (parse_chunk_func)(const chunk_t* chunk, void* userData);
 
 typedef struct parse_chunk_userdata_t {
     // user-supplied
     parse_chunk_filter_func* filter;
     parse_chunk_func* parser;
+    void* userData;
 
     // private
     chunk_t stack[16];

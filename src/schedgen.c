@@ -9,7 +9,7 @@
 
 #include "parser.h"
 
-static bool schedGenChunkFilter(const chunk_t* chunk) {
+static bool schedGenChunkFilter(const chunk_t* chunk, [[maybe_unused]] void* userData) {
     switch (chunk->type) {
         case CHUNK_TYPE_Generator:
             return true;
@@ -21,7 +21,7 @@ static bool schedGenChunkFilter(const chunk_t* chunk) {
     }
 }
 
-static int schedGenhunkParser(const chunk_t* chunk) {
+static int schedGenhunkParser(const chunk_t* chunk, [[maybe_unused]] void* userData) {
     int ret = 0;
 
     switch (chunk->type) {
@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
     int ret = parseChunks(datBuf, datLen, &(parse_chunk_userdata_t) {
         .filter = schedGenChunkFilter,
         .parser = schedGenhunkParser,
+        .userData = NULL,
     });
 
     if (ret < 0) {
