@@ -53,4 +53,12 @@
 
 #define msb32(...)         GET_VARARGS_MACRO3(__VA_ARGS__, msb32_bi, msb32_i, msb32_, nothing)(__VA_ARGS__)
 
+// Signed variations
+#define slsb8(...)         ((int8_t) (GET_VARARGS_MACRO3(__VA_ARGS__, lsb8_bi, lsb8_i, lsb8_, nothing)(__VA_ARGS__)))
+#define slsb16(...)        ((int16_t) (GET_VARARGS_MACRO3(__VA_ARGS__, lsb16_bi, lsb16_i, lsb16_, nothing)(__VA_ARGS__)))
+#define slsb24(...)        ((int32_t) (GET_VARARGS_MACRO3(__VA_ARGS__, lsb24_bi, lsb24_i, lsb24_, nothing)(__VA_ARGS__)))
+#define slsb32(...)        ((int32_t) (GET_VARARGS_MACRO3(__VA_ARGS__, lsb32_bi, lsb32_i, lsb32_, nothing)(__VA_ARGS__)))
+
+#define smsb32(...)        ((int32_t) (GET_VARARGS_MACRO3(__VA_ARGS__, msb32_bi, msb32_i, msb32_, nothing)(__VA_ARGS__)))
+
 #endif
