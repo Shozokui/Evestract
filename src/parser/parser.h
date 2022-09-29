@@ -11,6 +11,10 @@
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"
 
+typedef enum PARSE_CHUNK_FLAGS {
+    PARSE_CHUNK_FLAG_VERBOSE = 0x00000001,
+} PARSE_CHUNK_FLAGS;
+
 typedef bool (parse_chunk_filter_func)(const chunk_t* chunk, void* userData);
 typedef int (parse_chunk_func)(const chunk_t* chunk, void* userData);
 
@@ -18,6 +22,7 @@ typedef struct parse_chunk_userdata_t {
     // user-supplied
     parse_chunk_filter_func* filter;
     parse_chunk_func* parser;
+    PARSE_CHUNK_FLAGS flags;
     void* userData;
 
     // private

@@ -10,6 +10,8 @@
 static int parseChunk(const chunk_t* chunk, void* _userData) {
     parse_chunk_userdata_t* userData = (parse_chunk_userdata_t*) _userData;
 
+    bool verbose = (userData->flags & PARSE_CHUNK_FLAG_VERBOSE) != 0;
+
     if (chunk->type == 1) {
         // Rmp, push onto the stack
         int index = userData->stackIndex + 1;
@@ -41,13 +43,15 @@ static int parseChunk(const chunk_t* chunk, void* _userData) {
             // outside of a Rmp/Terminate pair)
             return -1;
         }
+    }
 
-        bool wanted = true;
-        if (userData->filter != NULL) {
-            wanted = userData->filter(chunk, userData->userData);
-        }
+    bool wanted = true;
+    if (userData->filter != NULL) {
+        wanted = userData->filter(chunk, userData->userData);
+    }
 
-        if (wanted) {
+    if (wanted) {
+        if (verbose) {
             for (int index = 0; index <= userData->stackIndex; index++) {
                 const chunk_t* c = &userData->stack[index];
 
@@ -65,14 +69,16 @@ static int parseChunk(const chunk_t* chunk, void* _userData) {
             } else {
                 printf("'%s'.%s:\n", chunk->FourCC, typeName);
             }
+        }
 
-            if (userData->parser != NULL) {
-                int ret = userData->parser(chunk, userData->userData);
-                if (ret < 0) {
-                    return ret;
-                }
+        if (userData->parser != NULL) {
+            int ret = userData->parser(chunk, userData->userData);
+            if (ret < 0) {
+                return ret;
             }
+        }
 
+        if (verbose) {
             printf("\n");
         }
     }
@@ -85,6 +91,7 @@ int parseChunks(const uint8_t* datBuf, uint32_t datLen, parse_chunk_userdata_t* 
     int ret = LoadChunkedResource(datBuf, datLen, &parseChunk, &(parse_chunk_userdata_t) {
         .filter = userData->filter,
         .parser = userData->parser,
+        .flags = userData->flags,
         .userData = userData->userData,
 
         .stackIndex = -1,
