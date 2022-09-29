@@ -31,7 +31,6 @@ static int menuChunkParser(const chunk_t* chunk, [[maybe_unused]] void* userData
     switch (chunk->type) {
         case CHUNK_TYPE_Bmp2:
         case CHUNK_TYPE_D3s:
-        case CHUNK_TYPE_Bp:
             ret = parseBmp2(chunk);
             break;
         case CHUNK_TYPE_Meb:
