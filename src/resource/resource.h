@@ -119,4 +119,9 @@ const char* GetChunkTypeName(CHUNK_TYPE type);
 
 int LoadChunkedResource(const uint8_t* buf, uint32_t bufLen, int (*callback)(const chunk_t*, void*), void* userData);
 
+int chunk_clone(const chunk_t* chunk, chunk_t* clone);
+
+int chunk_align(int length);
+int chunk_write_header(uint8_t* buf, const chunk_t* chunk);
+
 #endif

@@ -160,12 +160,12 @@ int LoadChunkedResource(const uint8_t* buf, uint32_t bufLen, int (*callback)(con
         uint32_t header = lsb32(buf, bufOff, 4);
 
         uint32_t type = header & 0x7f;
-        uint32_t length = (((header >> 7) & 0x7ffff) << 4) - 16;
+        uint32_t length = (((header >> 7) & 0x7ffff) << 4);
 
         // bits 26 and 27 are internal use only
         uint32_t flags = (header >> 28);
 
-        if ((bufLen - bufOff - 16) < length) {
+        if ((bufLen - bufOff) < length) {
             // Should only happen in a corrupt DAT.
             fprintf(stderr, "[%d] Skipping chunk [%s] (%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x)\n",
                 chunkIndex,
@@ -206,9 +206,49 @@ int LoadChunkedResource(const uint8_t* buf, uint32_t bufLen, int (*callback)(con
             }
         }
 
-        bufOff += length + 16;
+        bufOff += length;
         chunkIndex++;
     }
+
+    return 0;
+}
+
+int chunk_clone(const chunk_t* chunk, chunk_t* clone) {
+    *clone = *chunk;
+
+    uint8_t* buf = (uint8_t*) malloc(chunk->length);
+    memcpy(buf, chunk->buf, chunk->length);
+    clone->buf = buf;
+
+    return 0;
+}
+
+int chunk_align(int length) {
+    return (length + 15) & ~15;
+}
+
+int chunk_write_header(uint8_t* buf, const chunk_t* chunk) {
+    uint32_t header = (chunk->flags << 28) | (((chunk->length >> 4) & 0x7FFFF) << 7) | chunk->type;
+
+    buf[0] = chunk->FourCC[0];
+    buf[1] = chunk->FourCC[1];
+    buf[2] = chunk->FourCC[2];
+    buf[3] = chunk->FourCC[3];
+
+    buf[4] = (header >> 0) & 0xFF;
+    buf[5] = (header >> 8) & 0xFF;
+    buf[6] = (header >> 16) & 0xFF;
+    buf[7] = (header >> 24) & 0xFF;
+
+    buf[8] = 0;
+    buf[9] = 0;
+    buf[10] = 0;
+    buf[11] = 0;
+
+    buf[12] = 0;
+    buf[13] = 0;
+    buf[14] = 0;
+    buf[15] = 0;
 
     return 0;
 }
