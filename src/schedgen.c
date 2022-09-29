@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
     int ret = parseChunks(datBuf, datLen, &(parse_chunk_userdata_t) {
         .filter = schedGenChunkFilter,
         .parser = schedGenhunkParser,
+        .flags = PARSE_CHUNK_FLAG_VERBOSE,
         .userData = NULL,
     });
 

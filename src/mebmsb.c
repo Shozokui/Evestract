@@ -92,6 +92,7 @@ int main(int argc, char* argv[]) {
     int ret = parseChunks(datBuf, datLen, &(parse_chunk_userdata_t) {
         .filter = menuChunkFilter,
         .parser = menuChunkParser,
+        .flags = PARSE_CHUNK_FLAG_VERBOSE,
         .userData = NULL,
     });
 
