@@ -25,8 +25,13 @@ int parseBmp2(const chunk_t* chunk) {
 
     uint32_t Width = lsb32(buf, 1, 20);
     uint32_t Height = lsb32(buf, 1, 24);
+
+    // bits per pixel in the stored version of the texture
     uint32_t BitsPerPixel = lsb8(buf, 1, 30);
+
+    // bits per pixel in the decoded version of the texture
     uint32_t PaletteBitsPerPixel = lsb8(buf, 1, 52);
+
     uint32_t Flags = 0;
     uint32_t FourCC = 0;
     uint32_t PaletteOffset = 0;
@@ -37,7 +42,7 @@ int parseBmp2(const chunk_t* chunk) {
 
     // uint32_t TextureSize = 0;
     // uint32_t PaletteSize = 0;
-    uint32_t CompressedTextureSize = 0;
+    // uint32_t CompressedTextureSize = 0;
 
     printf("\tBmp2 Texture Name: \"%s\"\n", textureName);
     printf("\tBmp2 Length: %u\n", length);
@@ -54,6 +59,7 @@ int parseBmp2(const chunk_t* chunk) {
         Flags = lsb32(buf, offset);
         offset += 4;
     }
+
     if (Version != 2) {
         if (BitsPerPixel == 4) {
             PaletteOffset = offset;
@@ -66,30 +72,37 @@ int parseBmp2(const chunk_t* chunk) {
             offset += 256 * PaletteBitsPerPixel / 8;
         }
 
+        // BPP 16, 24, 32 are not paletted.
+
         TextureOffset = offset;
-        offset += BitsPerPixel * Width * Height / 8;
     }
 
-    if (IsCompressed && offset < length - 4) {
+    if (IsCompressed) {
+        // This flag may be set for textures not actually compressed.
+        // Verify against the first four bytes.
         FourCC = lsb32(buf, offset);
-        offset += 4;
 
         if (FourCC >= 0x44585431 && FourCC <= 0x44585435) {
+            // DXT magic present.
+            offset += 4;
+
             UnknownDxt0 = lsb32(buf, offset, 0);
             UnknownDxt1 = lsb32(buf, offset, 4);
             offset += 8;
 
+            TextureOffset = 0;
             CompressedTextureOffset = offset;
 
             if (FourCC == 0x44585431) {
-                CompressedTextureSize = 8 * Width * Height / 16;
+                // CompressedTextureSize = 8 * Width * Height / 16;
             } else if (FourCC == 0x44585432 || FourCC == 0x44585433) {
-                CompressedTextureSize = 16 * Width * Height / 16;
+                // CompressedTextureSize = 16 * Width * Height / 16;
             } else if (FourCC == 0x44585434 || FourCC == 0x44585435) {
-                CompressedTextureSize = 16 * Width * Height / 16;
+                // CompressedTextureSize = 16 * Width * Height / 16;
             }
-
-            offset += CompressedTextureSize;
+        } else {
+            // Unknown FourCC; assuming not actually compressed.
+            FourCC = 0;
         }
     }
 
@@ -104,8 +117,6 @@ int parseBmp2(const chunk_t* chunk) {
 
     // block width in bytes
     printf("\tBmp2 UnknownDxt1: %u\n", UnknownDxt1);
-
-    // printf("\tBmp2 Remainder: %d\n", (int32_t) length - (int32_t) offset);
 
     return 0;
 }
