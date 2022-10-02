@@ -5,6 +5,8 @@ project(Evestract)
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS True)
+
 if(MSVC)
     add_compile_options(/W4 /wd4201 /wd4996 /wd4100)
 else()
@@ -52,3 +54,11 @@ target_include_directories(locresources PRIVATE ${BYTESDIR})
 
 add_executable(pivotable ${BYTESLIB} src/pivotable.c src/readfile.c src/ftable.c src/datid.c)
 target_include_directories(pivotable PRIVATE ${BYTESDIR})
+
+
+
+###########
+
+# etc.
+add_executable(fontpatch ${PARSERLIB} src/experiments/fontpatch.c src/experiments/tga.c src/experiments/tga.h src/readfile.c src/ftable.c)
+target_include_directories(fontpatch PRIVATE ${PARSERDIR})
