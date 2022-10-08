@@ -101,6 +101,32 @@ int parseMsb(const chunk_t* chunk) {
                 printf("\t\t\t\tC%d: #%02x%02x%02x%02x\n", x, r, g, b, a);
             }
 
+            // (below table may have errors, need to reverify)
+            // blendval
+            // 0 1 2 3    description
+            // 0 - - -    blend disabled
+            // 1 0 0 -    -
+            // 1 0 1 0    One, SrcAlpha, Subtract
+            // 1 0 1 1    SrcAlpha, InvSrcAlpha, Add
+            // 1 0 1 2    -
+            // 1 0 2 0    blend disabled
+            // 1 0 2 1    SrcAlpha, One, Add
+            // 1 0 2 2    SrcAlpha, Zero, Add
+            // 1 1 0 0    InvSrcAlpha, SrcAlpha, Add
+            // 1 1 0 1    SrcAlpha, One, RevSubtract
+            // 1 1 0 2    -
+            // 1 1 1 0    blend disabled
+            // 1 1 1 -    -
+            // 1 1 2 0    One, SrcAlpha, Add
+            // 1 1 2 1    DestColor, SrcAlpha, Add
+            // 1 1 2 2    Zero, SrcAlpha, Add
+            // 1 2 0 0    -
+            // 1 2 0 1    SrcAlpha, One, RevSubtract
+            // 1 2 0 2    -
+            // 1 2 1 0    One, SrcAlpha, Subtract
+            // 1 2 1 1    Zero, InvSrcAlpha, Add
+            // 1 2 1 2    -
+            // 1 2 2 -    -
             int Blend0 = lsb8(buf, offset + 0);
             int Blend1 = lsb8(buf, offset + 1);
             int Blend2 = lsb8(buf, offset + 2);
