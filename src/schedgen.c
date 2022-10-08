@@ -26,6 +26,7 @@ static int schedGenhunkParser(const chunk_t* chunk, [[maybe_unused]] void* userD
 
     switch (chunk->type) {
         case CHUNK_TYPE_Generator:
+            ret = parseGenerator(chunk);
             break;
         case CHUNK_TYPE_Scheduler:
             ret = parseScheduler(chunk);

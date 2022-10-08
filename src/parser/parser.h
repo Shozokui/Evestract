@@ -1,12 +1,14 @@
 #ifndef PARSER__PARSER_H
 #define PARSER__PARSER_H
 
+#include <stddef.h>
 #include <inttypes.h>
 #include <stdbool.h>
 
 #include "resource.h"
 
 #include "parsers/bmp2.h"
+#include "parsers/generator.h"
 #include "parsers/meb.h"
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"
