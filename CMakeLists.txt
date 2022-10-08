@@ -33,8 +33,26 @@ set(PARSERLIB ${RESOURCELIB} src/parser/parser.c
                              src/parser/parsers/scheduler.h)
 set(PARSERDIR ${RESOURCEDIR} src/parser)
 
+set(MD5LIB src/thirdparty/md5.c src/thirdparty/md5.h)
+set(MD5DIR src/thirdparty)
+
+set(PS2TEXTURELIB src/thirdparty/PS2Texture.c src/thirdparty/PS2Texture.h)
+set(PS2TEXTUREDIR src/thirdparty)
+
 add_executable(Evestract ${BYTESLIB} src/main.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c src/event.c src/npc.c src/script.c src/firstpass.c)
 target_include_directories(Evestract PRIVATE ${BYTESDIR})
+
+add_executable(texstract ${PARSERLIB} ${MD5LIB} ${PS2TEXTURELIB}
+    src/texstract/texstract.c
+    src/texstract/bmp2.c
+    src/texstract/bmp2.h
+    src/texstract/mtx.c
+    src/texstract/mtx.h
+    src/texstract/tga.c
+    src/texstract/tga.h
+    src/readfile.c
+    src/readfile.h)
+target_include_directories(texstract PRIVATE ${PARSERDIR} ${MD5DIR} ${PS2TEXTUREDIR})
 
 add_executable(schedgen ${PARSERLIB} src/schedgen.c src/readfile.c src/ftable.c)
 target_include_directories(schedgen PRIVATE ${PARSERDIR})
