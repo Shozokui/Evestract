@@ -27,6 +27,8 @@ set(PARSERLIB ${RESOURCELIB} src/parser/parser.c
                              src/parser/parsers/generator.h
                              src/parser/parsers/meb.c
                              src/parser/parsers/meb.h
+                             src/parser/parsers/mld.c
+                             src/parser/parsers/mld.h
                              src/parser/parsers/msb.c
                              src/parser/parsers/msb.h
                              src/parser/parsers/scheduler.c
@@ -53,6 +55,12 @@ add_executable(texstract ${PARSERLIB} ${MD5LIB} ${PS2TEXTURELIB}
     src/readfile.c
     src/readfile.h)
 target_include_directories(texstract PRIVATE ${PARSERDIR} ${MD5DIR} ${PS2TEXTUREDIR})
+
+add_executable(mapstract ${PARSERLIB} ${MD5LIB}
+    src/mapstract/mapstract.c
+    src/readfile.c
+    src/readfile.h)
+target_include_directories(mapstract PRIVATE ${PARSERDIR} ${MD5DIR})
 
 add_executable(schedgen ${PARSERLIB} src/schedgen.c src/readfile.c src/ftable.c)
 target_include_directories(schedgen PRIVATE ${PARSERDIR})

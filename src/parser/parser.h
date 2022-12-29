@@ -10,6 +10,7 @@
 #include "parsers/bmp2.h"
 #include "parsers/generator.h"
 #include "parsers/meb.h"
+#include "parsers/mld.h"
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"
 
