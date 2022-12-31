@@ -390,6 +390,7 @@ static void Opcode02(struct vm_t* vm) {
             return;
     }
 
+    // *** Official Name: IF
     printf("CMP %s %s %s, .L%04X\n",
         getVar16Name(vm, 1),
         Op,
@@ -604,6 +605,8 @@ static void Opcode1E(struct vm_t* vm) {
 static void Opcode1F(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
+    // *** Official Name: MOVE
+
     if (param == 0) {
         printf("MOVETO %s, %s, %s\n",
             getVar16NameFloat100(vm, 2),
@@ -642,6 +645,9 @@ static void Opcode22(struct vm_t* vm) {
 static void Opcode23(struct vm_t* vm) {
     // Text was just shown -- wait for a continue / cancel button press.
     // Cancelling will end the event.
+
+    // *** Official Name: MESWAIT
+
     printf("WAITFORINPUT\n");
     vm->pc += 1;
 }
@@ -649,6 +655,8 @@ static void Opcode23(struct vm_t* vm) {
 static void Opcode24(struct vm_t* vm) {
     // Show a dialog with options.
     const char* message = getVar16Message(vm, 1);
+
+    // *** Official Name: QUERY
 
     if (message != NULL) {
         printf("PROMPT %s, %s, %s // %s\n",
@@ -670,6 +678,9 @@ static void Opcode24(struct vm_t* vm) {
 static void Opcode25(struct vm_t* vm) {
     // A dialog was just shown -- wait for an option select / cancel button press.
     // Cancelling will end the event.
+
+    // *** Official Name: QUERYWAIT
+
     printf("WAITFORPROMPT\n");
     vm->pc += 1;
 }
@@ -697,6 +708,8 @@ static void Opcode27(struct vm_t* vm) {
 static void Opcode28(struct vm_t* vm) {
     uint32_t addr = getImm32(vm, 2);
 
+    // *** Official Name: REQSW
+
     // Starts an event for an npc, waiting for the event to complete.
     printf("STARTEVENT2 #%d, %s, %s\n",
         getImm8(vm, 1),
@@ -708,6 +721,8 @@ static void Opcode28(struct vm_t* vm) {
 
 static void Opcode29(struct vm_t* vm) {
     uint32_t addr = getImm32(vm, 2);
+
+    // *** Official Name: REQEW
 
     // Starts an event for an npc, waiting for the event to complete.
     // The caller has an extra validity check over V2 to verify
@@ -751,7 +766,10 @@ static void Opcode2B(struct vm_t* vm) {
 }
 
 static void Opcode2C(struct vm_t* vm) {
-    printf("Opcode2C %s, %s, %s\n",
+
+    // *** Official Name: SCHEDULOR
+
+    printf("SCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -760,7 +778,10 @@ static void Opcode2C(struct vm_t* vm) {
 }
 
 static void Opcode2D(struct vm_t* vm) {
-    printf("Opcode2D %s, %s, %s\n",
+
+    // *** Official Name: MAPSCHEDULOR
+
+    printf("MAPSCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -790,6 +811,8 @@ static void Opcode30(struct vm_t* vm) {
 
 static void Opcode31(struct vm_t* vm) {
     uint32_t param = lsb8(vm->code, vm->pc, 1);
+
+    // *** Official Name: SMOVE
 
     // MOVETO3 interpolates x, y, z, ending after # frames
     if (param == 0) {
@@ -931,6 +954,9 @@ static void Opcode3F(struct vm_t* vm) {
 }
 
 static void Opcode40(struct vm_t* vm) {
+
+    // *** Official Name: SETBITWORK
+
     // Creates a bitmask to merge two values
     // MASK = ((1 << (P2 - P1)) - 1) << P1
     // P3 = ((P4 << P1) & MASK) | (P3 & ~MASK)
@@ -945,6 +971,9 @@ static void Opcode40(struct vm_t* vm) {
 }
 
 static void Opcode41(struct vm_t* vm) {
+
+    // *** Official Name: GETBITWORK
+
     // Creates a bitmask to extract a value
     // MASK = ((1 << (P2 - P1)) - 1) << P1
     // P3 = (P4 & MASK) >> P1
@@ -987,7 +1016,10 @@ static void Opcode44(struct vm_t* vm) {
 }
 
 static void Opcode45(struct vm_t* vm) {
-    printf("Opcode45 %s, %s, %s, %s, %s\n",
+
+    // *** Official Name: LOADSCHEDULER
+
+    printf("LOADSCHEDULER %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1077,7 +1109,10 @@ static void Opcode49(struct vm_t* vm) {
 }
 
 static void Opcode4A(struct vm_t* vm) {
-    printf("Opcode4A %s, %s\n",
+
+    // *** Official Name: DTURA
+
+    printf("DTURA %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5));
 
@@ -1120,7 +1155,10 @@ static void Opcode4F(struct vm_t* vm) {
 }
 
 static void Opcode50(struct vm_t* vm) {
-    printf("Opcode50 %s, %s, %s\n",
+
+    // *** Official Name: ENDSCHEDULOR
+
+    printf("ENDSCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -1129,7 +1167,10 @@ static void Opcode50(struct vm_t* vm) {
 }
 
 static void Opcode51(struct vm_t* vm) {
-    printf("Opcode51 %s, %s, %s\n",
+
+    // *** Official Name: ENDMAPSCHEDULOR
+
+    printf("ENDMAPSCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -1138,7 +1179,10 @@ static void Opcode51(struct vm_t* vm) {
 }
 
 static void Opcode52(struct vm_t* vm) {
-    printf("Opcode52 %s, %s, %s, %s\n",
+
+    // *** Official Name: ENDLOADSCHEDULER
+
+    printf("ENDLOADSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1148,7 +1192,10 @@ static void Opcode52(struct vm_t* vm) {
 }
 
 static void Opcode53(struct vm_t* vm) {
-    printf("Opcode53 %s, %s, %s\n",
+
+    // *** Official Name: WAITSCHEDULOR
+
+    printf("WAITSCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -1157,7 +1204,10 @@ static void Opcode53(struct vm_t* vm) {
 }
 
 static void Opcode54(struct vm_t* vm) {
-    printf("Opcode54 %s, %s, %s\n",
+
+    // *** Official Name: WAITMAPSCHEDULOR
+
+    printf("WAITMAPSCHEDULER %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5),
         getVar32FourCC(vm, 9));
@@ -1166,7 +1216,10 @@ static void Opcode54(struct vm_t* vm) {
 }
 
 static void Opcode55(struct vm_t* vm) {
-    printf("Opcode55 %s, %s, %s, %s\n",
+
+    // *** Official Name: WAITLOADSCHEDULER
+
+    printf("WAITLOADSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1256,6 +1309,8 @@ static void Opcode59(struct vm_t* vm) {
 static void Opcode5A(struct vm_t* vm) {
     uint32_t param = getImm8(vm, 1);
 
+    // *** Official Name: MOVE2
+
     if (param == 0) {
         printf("MOVETO2 %s, %s, %s\n",
             getVar16NameFloat100(vm, 2),
@@ -1272,7 +1327,10 @@ static void Opcode5A(struct vm_t* vm) {
 }
 
 static void Opcode5B(struct vm_t* vm) {
-    printf("Opcode5B %s, %s, %s, %s\n",
+
+    // *** Official Name: LOADEXTSCHEDULER
+
+    printf("LOADEXTSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1413,7 +1471,10 @@ static void Opcode61(struct vm_t* vm) {
 }
 
 static void Opcode62(struct vm_t* vm) {
-    printf("Opcode62 %s, %s, %s, %s, %s\n",
+
+    // *** Official Name: LOADEVENTSCHEDULER
+
+    printf("LOADEVENTSCHEDULER %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1442,6 +1503,9 @@ static void Opcode64(struct vm_t* vm) {
 }
 
 static void Opcode65(struct vm_t* vm) {
+
+    // *** Official Name: GETDISTANCEAA
+
     printf("GETDISTANCE %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -1451,7 +1515,10 @@ static void Opcode65(struct vm_t* vm) {
 }
 
 static void Opcode66(struct vm_t* vm) {
-    printf("Opcode66 %s, %s, %s, %s\n",
+
+    // *** Official Name: LOADEXTSCHEDULER2
+
+    printf("LOADEXTSCHEDULER2 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -1500,7 +1567,10 @@ static void Opcode6B(struct vm_t* vm) {
 }
 
 static void Opcode6C(struct vm_t* vm) {
-    printf("Opcode6C %s, %s, %s\n",
+
+    // *** Official Name: TRANSPAR
+
+    printf("TRANSPAR %s, %s, %s\n",
         getVar32Name(vm, 1),
         getVar16Name(vm, 5),
         getVar16Name(vm, 7));
@@ -1676,7 +1746,10 @@ static void Opcode72(struct vm_t* vm) {
 }
 
 static void Opcode73(struct vm_t* vm) {
-    printf("Opcode73 %s, %s, %s\n",
+
+    // *** Official Name: LOADMAGICSCHEDULOR
+
+    printf("LOADMAGICSCHEDULER %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7));
@@ -1880,6 +1953,9 @@ static void Opcode7E(struct vm_t* vm) {
 static void Opcode7F(struct vm_t* vm) {
     // A dialog was just shown -- wait for an option select / cancel button press.
     // Cancelling will NOT end the event.
+
+    // *** Official Name: QUERYWAIT2
+
     printf("WAITFORPROMPTNOCANCEL\n");
 
     vm->pc += 1;
