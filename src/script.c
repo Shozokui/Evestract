@@ -1722,19 +1722,30 @@ static void Opcode71(struct vm_t* vm) {
 
 static void Opcode72(struct vm_t* vm) {
 
+    // *** Official Name: GETWEATER
+
     uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
         // Load the appropriate Weather resource
         // for the given zone.
+        // WEATHER IS ASSUMED TO FOLLOW THIS INSTRUCTION!
+
+#if EVENT_VERSION == 2002
+        printf("LOADWEATHER\n");
+
+        vm->pc += 2;
+#else
         printf("LOADWEATHER %s\n",
             getVar16Name(vm, 2));
 
         vm->pc += 4;
+#endif
     } else if (param == 1) {
         // Read the current weather forecast
         // for the given zone and store in
         // Param0-Param2.
+
         printf("WEATHER %s, %s\n",
             getVar16Name(vm, 2),
             getVar16Name(vm, 4));
@@ -1814,6 +1825,13 @@ static void Opcode78(struct vm_t* vm) {
 }
 
 static void Opcode79(struct vm_t* vm) {
+#if EVENT_VERSION == 2002
+    printf("Opcode79 %s, %s\n",
+        getVar32Name(vm, 1),
+        getVar32Name(vm, 5));
+
+    vm->pc += 9;
+#else
     uint32_t param = getImm8(vm, 1);
 
     if (param == 0) {
@@ -1842,6 +1860,7 @@ static void Opcode79(struct vm_t* vm) {
     } else {
         vm->running = 0;
     }
+#endif
 }
 
 static void Opcode7A(struct vm_t* vm) {

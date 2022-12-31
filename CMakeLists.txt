@@ -43,6 +43,11 @@ set(PS2TEXTUREDIR src/thirdparty)
 
 add_executable(Evestract ${BYTESLIB} src/main.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c src/event.c src/npc.c src/script.c src/firstpass.c)
 target_include_directories(Evestract PRIVATE ${BYTESDIR})
+target_compile_definitions(Evestract PRIVATE EVENT_VERSION=2022)
+
+add_executable(Evestract.2002 ${BYTESLIB} src/main.c src/readfile.c src/ftable.c src/datid.c src/text.c src/dialog.c src/event.c src/npc.c src/script.c src/firstpass.c)
+target_include_directories(Evestract.2002 PRIVATE ${BYTESDIR})
+target_compile_definitions(Evestract.2002 PRIVATE EVENT_VERSION=2002)
 
 add_executable(texstract ${PARSERLIB} ${MD5LIB} ${PS2TEXTURELIB}
     src/texstract/texstract.c
