@@ -85,6 +85,12 @@ target_include_directories(ftable PRIVATE ${BYTESDIR})
 add_executable(locresources ${BYTESLIB} src/utils/locresources.c src/readfile.c src/ftable.c src/datid.c)
 target_include_directories(locresources PRIVATE ${BYTESDIR})
 
+add_executable(xilzss ${BYTESLIB} src/utils/xilzss.c src/readfile.c src/readfile.h)
+target_include_directories(xilzss PRIVATE ${BYTESDIR})
+
+add_executable(xistable ${BYTESLIB} src/utils/xistable.c src/readfile.c src/readfile.h)
+target_include_directories(xistable PRIVATE ${BYTESDIR})
+
 add_executable(pivotable ${BYTESLIB} src/pivotable.c src/readfile.c src/ftable.c src/datid.c)
 target_include_directories(pivotable PRIVATE ${BYTESDIR})
 
