@@ -433,6 +433,9 @@ static const Opcode OpcodeTable[] = {
     OPCODE        (0x7901, 12                         ),
     OPCODE        (0x7902, 10                         ),
 #endif
+#if EVENT_VERSION == 2002
+    OPCODE        (0x7A  ,  11                        ),
+#else
     OPCODE_IS_TWO (0x7A                               ),
     OPCODE        (0x7A00,  6                         ),
     OPCODE        (0x7A01,  7                         ),
@@ -440,6 +443,7 @@ static const Opcode OpcodeTable[] = {
     OPCODE        (0x7A03,  2                         ),
     OPCODE        (0x7A04,  8                         ),
     OPCODE        (0x7A05,  6                         ),
+#endif
     OPCODE        (0x7B  ,  5                         ),
     OPCODE        (0x7C  ,  6                         ),
     OPCODE        (0x7D  ,  3                         ),

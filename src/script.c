@@ -274,10 +274,15 @@ static const char* getVar32FourCC(struct vm_t* vm, uint32_t off) {
 
     char* buf = &tmpBuf[off][0];
 
-    if (!(isalnum(a) || ispunct(a) || a == ' ') || !(isalnum(b) || ispunct(b) || b == ' ') || !(isalnum(c) || ispunct(c) || c == ' ') || !(isalnum(d) || ispunct(d) || d == ' ')) {
+    if (!(isalnum(a) || ispunct(a) || a == ' ' || a == 0) || !(isalnum(b) || ispunct(b) || b == ' ') || !(isalnum(c) || ispunct(c) || c == ' ') || !(isalnum(d) || ispunct(d) || d == ' ')) {
         sprintf(buf, "#$%02x%02x%02x%02x", a, b, c, d);
     } else {
-        sprintf(buf, "#'%c%c%c%c'", a, b, c, d);
+        if (a == 0) {
+            // Unknown at this time if this is legitimate or an actual issue somewhere.
+            sprintf(buf, "#'\\0%c%c%c'", b, c, d);
+        } else {
+            sprintf(buf, "#'%c%c%c%c'", a, b, c, d);
+        }
     }
 
     return buf;
@@ -1826,6 +1831,8 @@ static void Opcode78(struct vm_t* vm) {
 
 static void Opcode79(struct vm_t* vm) {
 #if EVENT_VERSION == 2002
+    // NOTE: SAME AS 2022's 7900
+
     printf("Opcode79 %s, %s\n",
         getVar32Name(vm, 1),
         getVar32Name(vm, 5));
@@ -1864,6 +1871,16 @@ static void Opcode79(struct vm_t* vm) {
 }
 
 static void Opcode7A(struct vm_t* vm) {
+#if EVENT_VERSION == 2002
+    // NOTE: SAME AS 2022's 7901
+
+    printf("Opcode7A %s, %s, %s\n",
+        getVar32Name(vm, 2),
+        getVar32Name(vm, 6),
+        getVar32Name(vm, 10));
+
+    vm->pc += 11;
+#else
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param == 0) {
@@ -1905,6 +1922,7 @@ static void Opcode7A(struct vm_t* vm) {
     } else {
         vm->running = 0;
     }
+#endif
 }
 
 static void Opcode7B(struct vm_t* vm) {
