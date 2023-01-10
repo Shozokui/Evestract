@@ -96,6 +96,11 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // Tacky header message.
+    printf("# Disassembulated by Velyn's Evestract v0.1!\n");
+    printf("# For internal HorizonXI use only. :)\n");
+    printf("#\n\n");
+
     struct dialog_t* dialog;
     struct npc_t* npc;
 
