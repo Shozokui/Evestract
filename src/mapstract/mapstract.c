@@ -19,7 +19,10 @@ static bool chunkFilter(const chunk_t* chunk, void* userData) {
     (void) userData;
 
     switch (chunk->type) {
+        case CHUNK_TYPE_Bmd:
         case CHUNK_TYPE_Mld:
+        case CHUNK_TYPE_Mmd:
+        case CHUNK_TYPE_Vum:
             return true;
 
         default:
@@ -36,6 +39,12 @@ static int chunkParser(const chunk_t* chunk, void* userData) {
     switch (chunk->type) {
         case CHUNK_TYPE_Mld:
             ret = parseMld(chunk);
+            break;
+
+        case CHUNK_TYPE_Bmd:
+        case CHUNK_TYPE_Mmd:
+        case CHUNK_TYPE_Vum:
+            ret = parseVum(chunk);
             break;
 
         default:

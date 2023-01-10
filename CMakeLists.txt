@@ -32,7 +32,9 @@ set(PARSERLIB ${RESOURCELIB} src/parser/parser.c
                              src/parser/parsers/msb.c
                              src/parser/parsers/msb.h
                              src/parser/parsers/scheduler.c
-                             src/parser/parsers/scheduler.h)
+                             src/parser/parsers/scheduler.h
+                             src/parser/parsers/vum.c
+                             src/parser/parsers/vum.h)
 set(PARSERDIR ${RESOURCEDIR} src/parser)
 
 set(MD5LIB src/thirdparty/md5.c src/thirdparty/md5.h)

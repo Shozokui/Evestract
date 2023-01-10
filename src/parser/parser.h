@@ -13,6 +13,8 @@
 #include "parsers/mld.h"
 #include "parsers/msb.h"
 #include "parsers/scheduler.h"
+#include "parsers/vum.h"
+
 
 typedef enum PARSE_CHUNK_FLAGS {
     PARSE_CHUNK_FLAG_VERBOSE = 0x00000001,

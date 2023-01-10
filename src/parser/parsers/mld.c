@@ -15,12 +15,19 @@ int parseMld(const chunk_t* chunk) {
 
     const uint8_t* buf = chunk->buf + 16;
 
-    printf("\t00: %u\n", lsb32(buf, 0x00));
-    printf("\t04: %u\n", lsb32(buf, 0x04));
-    printf("\t08: %u\n", lsb32(buf, 0x08));
-    printf("\t0C: %u\n", lsb32(buf, 0x0C));
-    printf("\t10: %u\n", lsb32(buf, 0x10));
-    printf("\t14: %u\n", lsb32(buf, 0x14));
+    uint32_t GridWidth = lsb32(buf, 0x00);
+    uint32_t GridHeight = lsb32(buf, 0x04);
+    uint32_t BlockWidth = lsb32(buf, 0x08);
+    uint32_t BlockHeight = lsb32(buf, 0x0C);
+    uint32_t GridOffset = lsb32(buf, 0x10);
+    uint32_t NumModels = lsb32(buf, 0x14);
+
+    printf("\tGridWidth: %u\n", GridWidth);
+    printf("\tGridHeight: %u\n", GridHeight);
+    printf("\tBlockWidth: %u\n", BlockWidth);
+    printf("\tBlockHeight: %u\n", BlockHeight);
+    printf("\tGridOffset: %u\n", GridOffset);
+    printf("\tNumModels: %u\n", NumModels);
     printf("\t18: %u\n", lsb32(buf, 0x18));
     printf("\t1C: %u\n", lsb32(buf, 0x1C));
     printf("\t20: %u\n", lsb32(buf, 0x20));
@@ -34,6 +41,16 @@ int parseMld(const chunk_t* chunk) {
 
     printf("\t40: %u\n", lsb32(buf, 0x40));
     printf("\t44: %08X\n", lsb32(buf, 0x44));
+
+
+    for (uint32_t i = 0; i < NumModels; i++) {
+        char modelName[17];
+
+        memset(modelName, 0, sizeof(modelName));
+        strncpy(modelName, cptr8(buf, 0x48, i * 32), 16);
+
+        printf("\t\t\"%s\"\n", modelName);
+    }
 
     return 0;
 }
