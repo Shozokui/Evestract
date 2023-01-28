@@ -1,6 +1,8 @@
 #ifndef THIRDPARTY__PS2TEXTURE_H
 #define THIRDPARTY__PS2TEXTURE_H
 
+#include <inttypes.h>
+
 // Victor Suba's PS2 Texture code, from GSTextureConvert-1.1
 // https://web.archive.org/web/20221008102902/https://ps2linux.no-ip.info/playstation2-linux.com/projects/ezswizzle/
 
@@ -32,5 +34,11 @@ void PS2Texture_ReadTexPSMT8(int dbp, int dbw, int dsax, int dsay, int rrw, int 
 
 void PS2Texture_WriteTexPSMT4(int dbp, int dbw, int dsax, int dsay, int rrw, int rrh, void *data);
 void PS2Texture_ReadTexPSMT4(int dbp, int dbw, int dsax, int dsay, int rrw, int rrh, void *data);
+
+// Swizzlers written by Sparky
+// https://web.archive.org/web/20221008101555/https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
+
+void PS2DeSwizzle32to8(uint8_t* d, const uint8_t* s, const int32_t width, const int32_t height);
+void PS2DeSwizzle32to4(uint8_t* d, const uint8_t* s, const uint32_t width, const uint32_t height);
 
 #endif

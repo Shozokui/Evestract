@@ -9,91 +9,13 @@
 #include "bytes.h"
 #include "parser.h"
 
+#include "PS2Texture.h"
+
 #include "mtx.h"
 
 #include "md5.h"
 #include "tga.h"
 
-
-static void PS2DeSwizzle32to8(uint8_t* d, const uint8_t* s, const int32_t width, const int32_t height) {
-   // this function works for the following resolutions
-   // Width:       any multiple of 16 smaller then or equal to 4096
-   // Height:      any multiple of 4 smaller then or equal to 4096
-
-   // the texels must be uploaded as a 32bit texture
-   // width_32bit = width_8bit / 2
-   // height_32bit = height_8bit / 2
-   // remember to adjust the mapping coordinates when
-   // using a dimension which is not a power of two
-
-   for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-         const int32_t block_location = (y&(~0xf))*width + (x&(~0xf))*2;
-         const int32_t swap_selector = (((y+2)>>2)&0x1)*4;
-         const int32_t posY = (((y&(~3))>>1) + (y&1))&0x7;
-         const int32_t column_location = posY*width*2 + ((x+swap_selector)&0x7)*4;
-
-         const int32_t byte_num = ((y>>1)&1) + ((x>>2)&2);     // 0,1,2,3
-
-        uint8_t srcPix = s[block_location + column_location + byte_num];
-
-        d[y*width+x] = srcPix;
-      }
-   }
-}
-
-static void PS2DeSwizzle32to4(uint8_t* d, const uint8_t* s, const uint32_t width, const uint32_t height) {
-   // this function works for the following resolutions
-   // Width:       32, 64, 96, 128, any multiple of 128 smaller then or equal to 4096
-   // Height:      16, 32, 48, 64, 80, 96, 112, 128, any multiple of 128 smaller then or equal to 4096
-
-   // the texels must be uploaded as a 32bit texture
-   // width_32bit = height_4bit / 2
-   // height_32bit = width_4bit / 4
-   // remember to adjust the mapping coordinates when
-   // using a dimension which is not a power of two
-
-   for (uint32_t y = 0; y < height; y++) {
-      for (uint32_t x = 0; x < width; x++) {
-         // get the pen
-         const uint32_t index = y*width+x;
-
-         // swizzle
-         const uint32_t pageX = x & (~0x7f);
-         const uint32_t pageY = y & (~0x7f);
-
-         const uint32_t pages_horz = (width+127)/128;
-         const uint32_t pages_vert = (height+127)/128;
-
-         const uint32_t page_number = (pageY/128)*pages_horz + (pageX/128);
-
-         const uint32_t page32Y = (page_number/pages_vert)*32;
-         const uint32_t page32X = (page_number%pages_vert)*64;
-
-         const uint32_t page_location = page32Y*height*2 + page32X*4;
-
-         const uint32_t locX = x & 0x7f;
-         const uint32_t locY = y & 0x7f;
-
-         const uint32_t block_location = ((locX&(~0x1f))>>1)*height + (locY&(~0xf))*2;
-         const uint32_t swap_selector = (((y+2)>>2)&0x1)*4;
-         const uint32_t posY = (((y&(~3))>>1) + (y&1))&0x7;
-
-         const uint32_t column_location = posY*height*2 + ((x+swap_selector)&0x7)*4;
-
-         const uint32_t byte_num = (x>>3)&3;     // 0,1,2,3
-         const uint32_t bits_set = (y>>1)&1;     // 0,1            (lower/upper 4 bits)
-
-         const uint8_t srcVal = s[page_location + block_location + column_location + byte_num];
-         const uint8_t srcPix = (srcVal & (0xf << (bits_set*4))) >> (bits_set*4);
-
-         uint8_t* destPtr = &d[(index>>1)];
-         uint8_t destMask = 0xF << ((index&1)*4);
-
-         destPtr[0] = (destPtr[0] & ~destMask) | (srcPix << ((index&1)*4));
-      }
-   }
-}
 
 int convertMtx(const chunk_t* chunk) {
 

@@ -6,6 +6,11 @@
 
 #include "PS2Texture.h"
 
+
+// WARNING - actual copyright licenses are not known
+// Welcome to the "I found it on a mailing list" zone
+
+
 // Victor Suba's PS2 Texture code, from GSTextureConvert-1.1
 // https://web.archive.org/web/20221008102902/https://ps2linux.no-ip.info/playstation2-linux.com/projects/ezswizzle/
 
@@ -850,7 +855,6 @@ void PS2Texture_ReadTexPSMT4(int dbp, int dbw, int dsax, int dsay, int rrw, int 
 // Swizzlers written by Sparky
 // https://web.archive.org/web/20221008101555/https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
 
-#if 0
 void PS2DeSwizzle32to8(uint8_t* d, const uint8_t* s, const int32_t width, const int32_t height) {
    // this function works for the following resolutions
    // Width:       any multiple of 16 smaller then or equal to 4096
@@ -930,4 +934,3 @@ void PS2DeSwizzle32to4(uint8_t* d, const uint8_t* s, const uint32_t width, const
       }
    }
 }
-#endif
