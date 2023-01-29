@@ -1591,6 +1591,9 @@ static void Opcode6D(struct vm_t* vm) {
 }
 
 static void Opcode6E(struct vm_t* vm) {
+
+    // *** Official Name: EMOT
+
     printf("EMOTE %s, %s\n",
         getVar32Name(vm, 1),
         getVar16Name(vm, 5));
@@ -1611,6 +1614,8 @@ static void Opcode70(struct vm_t* vm) {
 }
 
 static void Opcode71(struct vm_t* vm) {
+    // *** Official Name: OPENPASSWIN
+
     uint8_t param = getImm8(vm, 1);
 
     if (param == 0) {
@@ -1781,6 +1786,8 @@ static void Opcode74(struct vm_t* vm) {
 }
 
 static void Opcode75(struct vm_t* vm) {
+    // *** Official Name: LOADROOM
+
     uint32_t param = lsb8(vm->code, vm->pc, 1);
 
     if (param == 0) {
@@ -1814,6 +1821,8 @@ static void Opcode76(struct vm_t* vm) {
 }
 
 static void Opcode77(struct vm_t* vm) {
+    // *** Official Name: SETENVIRONMENT
+
     // Not quite...?
     // Needs more investigation
     printf("SETWEATHER0 %s, %s\n",
@@ -1948,6 +1957,9 @@ static void Opcode7D(struct vm_t* vm) {
 }
 
 static void Opcode7E(struct vm_t* vm) {
+
+    // *** Official Name: CHOCOBO
+
     uint8_t param = getImm16(vm, 1);
 
     if (param == 0 || param == 1 || param == 2 || param == 4 || param == 5 || param == 8) {
@@ -2084,6 +2096,8 @@ static void Opcode8A(struct vm_t* vm) {
 }
 
 static void Opcode8B(struct vm_t* vm) {
+    // *** Official Name: SETEVENTMARK
+
     // !!!
     uint8_t buf[17];
     memset(buf, 0, sizeof(buf));
@@ -2091,7 +2105,7 @@ static void Opcode8B(struct vm_t* vm) {
 
     const char* text = GetPrintableText(buf, 16);
 
-    printf("Opcode8B %s, %s, %s, %s, %s\n",
+    printf("SETEVENTMARK %s, %s, %s, %s, \"%s\"\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16NameFloat100(vm, 5),
@@ -2339,12 +2353,13 @@ static void Opcode9D(struct vm_t* vm) {
     } else if (param == 8) {
         const char* text = GetPrintableText(&vm->code[vm->pc + 5], 16);
 
-        printf("STRCMP %s, %02x, %s, .L%04X\n",
+        printf("STRCMP %s, %02x, \"%s\", .L%04X\n",
             getVar16Name(vm, 2),
             getImm8(vm, 4),
             text,
             getImm16(vm, 21));
 
+        FreePrintableText(text);
         vm->pc += 23;
     } else if (param == 9) {
         printf("STRCMP %s, %02x, %s, .L%04X\n",
@@ -3128,7 +3143,7 @@ static void OpcodeB4(struct vm_t* vm) {
     } else if (param == 19) {
         const char* text = GetPrintableText(&vm->code[vm->pc + 4], 16);
 
-        printf("OpcodeB4 %02x, %s, %s\n",
+        printf("OpcodeB4 %02x, %s, \"%s\"\n",
             param,
             getVar16Name(vm, 2),
             text);
@@ -3320,7 +3335,7 @@ static void OpcodeB8(struct vm_t* vm) {
 
     const char* text = GetPrintableText(buf, 16);
 
-    printf("OpcodeB8 %s, %s, %s, %s, %s, %s\n",
+    printf("OpcodeB8 %s, %s, %s, %s, %s, \"%s\"\n",
         getVar16Name(vm, 1),
         getVar16Name(vm, 3),
         getVar16Name(vm, 5),
