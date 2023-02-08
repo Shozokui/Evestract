@@ -1023,6 +1023,7 @@ static void Opcode44(struct vm_t* vm) {
 static void Opcode45(struct vm_t* vm) {
 
     // *** Official Name: LOADSCHEDULER
+    // FileId offset: 0x77F0
 
     printf("LOADSCHEDULER %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
@@ -1186,6 +1187,7 @@ static void Opcode51(struct vm_t* vm) {
 static void Opcode52(struct vm_t* vm) {
 
     // *** Official Name: ENDLOADSCHEDULER
+    // FileId offset: 0x77F0
 
     printf("ENDLOADSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
@@ -1223,6 +1225,7 @@ static void Opcode54(struct vm_t* vm) {
 static void Opcode55(struct vm_t* vm) {
 
     // *** Official Name: WAITLOADSCHEDULER
+    // FileId offset: 0x77F0
 
     printf("WAITLOADSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
@@ -1478,6 +1481,7 @@ static void Opcode61(struct vm_t* vm) {
 static void Opcode62(struct vm_t* vm) {
 
     // *** Official Name: LOADEVENTSCHEDULER
+    // FileId offset: 0x1394
 
     printf("LOADEVENTSCHEDULER %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
@@ -2212,7 +2216,8 @@ static void Opcode91(struct vm_t* vm) {
 }
 
 static void Opcode92(struct vm_t* vm) {
-    printf("Opcode92 %02x, %s\n",
+    // Set/Reset Flags3.0x10000
+    printf("Opcode92 #$%02x, %s\n",
         lsb8(vm->code, vm->pc, 1),
         getVar32Name(vm, 2));
 
@@ -2227,7 +2232,8 @@ static void Opcode93(struct vm_t* vm) {
 }
 
 static void Opcode94(struct vm_t* vm) {
-    printf("Opcode94 %02x, %s\n",
+    // Set/Reset Flags3.0x20000
+    printf("Opcode94 #$%02x, %s\n",
         lsb8(vm->code, vm->pc, 1),
         getVar32Name(vm, 2));
 
@@ -2443,6 +2449,9 @@ static void Opcode9E(struct vm_t* vm) {
 }
 
 static void Opcode9F(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0xC7EF
+
     printf("Opcode9F %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -2454,7 +2463,10 @@ static void Opcode9F(struct vm_t* vm) {
 }
 
 static void OpcodeA0(struct vm_t* vm) {
-    printf("OpcodeA0 %s, %s, %s, %s\n",
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x1394
+
+    printf("WAITLOADEVENTSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -2464,7 +2476,10 @@ static void OpcodeA0(struct vm_t* vm) {
 }
 
 static void OpcodeA1(struct vm_t* vm) {
-    printf("OpcodeA1 %s, %s, %s, %s\n",
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x1394
+
+    printf("ENDLOADEVENTSCHEDULER %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
         getVar32Name(vm, 7),
@@ -2474,6 +2489,9 @@ static void OpcodeA1(struct vm_t* vm) {
 }
 
 static void OpcodeA2(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0xC7EF
+
     printf("OpcodeA2 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -2484,6 +2502,9 @@ static void OpcodeA2(struct vm_t* vm) {
 }
 
 static void OpcodeA3(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0xC7EF
+
     printf("OpcodeA3 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3370,6 +3391,9 @@ static void OpcodeBA(struct vm_t* vm) {
 }
 
 static void OpcodeBB(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0xDD6D
+
     printf("OpcodeBB %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3381,6 +3405,9 @@ static void OpcodeBB(struct vm_t* vm) {
 }
 
 static void OpcodeBC(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0xDD6D
+
     printf("OpcodeBC %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3391,6 +3418,9 @@ static void OpcodeBC(struct vm_t* vm) {
 }
 
 static void OpcodeBD(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0xDD6D
+
     printf("OpcodeBD %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3493,6 +3523,8 @@ static void OpcodeC3(struct vm_t* vm) {
 }
 
 static void OpcodeC4(struct vm_t* vm) {
+    // Note: based on LOADMAGICSCHEDULOR
+
     printf("OpcodeC4 %02x, %s, %s, %s\n",
         getImm8(vm, 1),
         getVar16Name(vm, 2),
@@ -3503,6 +3535,9 @@ static void OpcodeC4(struct vm_t* vm) {
 }
 
 static void OpcodeC5(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0x1071B
+
     printf("OpcodeC5 %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3514,6 +3549,9 @@ static void OpcodeC5(struct vm_t* vm) {
 }
 
 static void OpcodeC6(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x1071B
+
     printf("OpcodeC6 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3524,6 +3562,9 @@ static void OpcodeC6(struct vm_t* vm) {
 }
 
 static void OpcodeC7(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x1071B
+
     printf("OpcodeC7 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3597,6 +3638,9 @@ static void OpcodeCC(struct vm_t* vm) {
 }
 
 static void OpcodeCD(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11323
+
     printf("OpcodeCD %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3608,6 +3652,9 @@ static void OpcodeCD(struct vm_t* vm) {
 }
 
 static void OpcodeCE(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11323
+
     printf("OpcodeCE %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3618,6 +3665,9 @@ static void OpcodeCE(struct vm_t* vm) {
 }
 
 static void OpcodeCF(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11323
+
     printf("OpcodeCF %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3628,6 +3678,9 @@ static void OpcodeCF(struct vm_t* vm) {
 }
 
 static void OpcodeD0(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11423
+
     printf("OpcodeD0 %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3639,6 +3692,9 @@ static void OpcodeD0(struct vm_t* vm) {
 }
 
 static void OpcodeD1(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11423
+
     printf("OpcodeD1 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3649,6 +3705,9 @@ static void OpcodeD1(struct vm_t* vm) {
 }
 
 static void OpcodeD2(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x11423
+
     printf("OpcodeD2 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3731,6 +3790,9 @@ static void OpcodeD4(struct vm_t* vm) {
 }
 
 static void OpcodeD5(struct vm_t* vm) {
+    // LOADSCHEDULER/LOADEVENTSCHEDULER etc.
+    // FileId offset: 0x19031
+
     printf("OpcodeD5 %s, %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3742,6 +3804,9 @@ static void OpcodeD5(struct vm_t* vm) {
 }
 
 static void OpcodeD6(struct vm_t* vm) {
+    // WAITLOADSCHEDULER/WAITLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x19031
+
     printf("OpcodeD6 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
@@ -3752,6 +3817,9 @@ static void OpcodeD6(struct vm_t* vm) {
 }
 
 static void OpcodeD7(struct vm_t* vm) {
+    // ENDLOADSCHEDULER/ENDLOADEVENTSCHEDULER etc.
+    // FileId offset: 0x19031
+
     printf("OpcodeD7 %s, %s, %s, %s\n",
         getVar16Name(vm, 1),
         getVar32Name(vm, 3),
