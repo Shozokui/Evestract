@@ -64,7 +64,14 @@ int main(int argc, char* argv[]) {
 
     struct dialog_t* dialog;
 
-    LoadDialog(&dialog, dialogBuf, dialogLen);
+    int ret = LoadDialog(&dialog, dialogBuf, dialogLen);
+    if (ret < 0) {
+        // todo - shouldn't have to free on a failure
+        UnloadDialog(dialog);
+
+        fprintf(stderr, "%s: unable to parse \"%s\"\n", argv[0], filename);
+        exit(EXIT_FAILURE);
+    }
 
     for (uint32_t i = 0; i < dialog->numEntries; i++) {
         const struct dialog_entry_t* entry = &dialog->entries[i];
